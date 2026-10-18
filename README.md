@@ -7,6 +7,17 @@ em PostgreSQL e implantação com um script em qualquer servidor Linux com Docke
 > **Segurança em uma linha:** a aplicação exige login, mas foi feita para uso pessoal. Para acesso pela
 > internet, coloque HTTPS na frente (seção 20) antes de cadastrar dados reais.
 
+## Documentação
+
+| Onde | Conteúdo |
+|---|---|
+| Este `README.md` | instalação, configuração e operação do servidor |
+| [docs/METODOLOGIA.md](docs/METODOLOGIA.md) | fórmulas: saldo, receitas/despesas, preço médio, TIR, câmbio, patrimônio |
+| [vault/_Financeiro.md](vault/_Financeiro.md) | **documentação arquitetural completa** (Obsidian): status, módulos, fluxos, decisões e problemas conhecidos |
+
+No Obsidian, as notas aparecem no vault `Contexto Projetos` em `Contexto Projetos/Financeiro/` (uma junction
+para `Financeiro/vault/`), com índice em `_Financeiro`.
+
 ## Sumário
 
 1. [Objetivo](#1-objetivo) · 2. [Funcionalidades](#2-funcionalidades) · 3. [Arquitetura](#3-arquitetura) ·
@@ -114,7 +125,9 @@ Financeiro/
 ├── scripts/                   # install, deploy, update, backup, restore, status, logs, stop, create-admin
 ├── backups/                   # destino padrão dos backups (ignorado pelo Git)
 ├── docs/METODOLOGIA.md
-├── Dockerfile · docker-compose.yml · .dockerignore · .gitignore · .env.example
+├── vault/                     # documentação arquitetural (Obsidian), índice _Financeiro.md
+├── CLAUDE.md                  # instruções para o Claude Code (importa o índice do vault)
+├── Dockerfile · docker-compose.yml · .dockerignore · .gitignore · .gitattributes · .env.example
 ```
 
 > O `init.sql` sugerido no planejamento virou `init-app-user.sh`: um script de shell recebe a senha do
@@ -160,6 +173,14 @@ cd frontend && npm test && npm run typecheck
 
 Os testes **apagam e recriam** o schema do banco indicado em `TEST_DATABASE_URL` e só rodam se o nome do
 banco contiver `test`. Nunca aponte essa variável para o banco real.
+
+O que os testes cobrem:
+- **Backend** (`backend/tests/`): saldos, transferências, recorrências, CSV, investimentos, cotações,
+  patrimônio, autenticação, saúde e as regressões da revisão de código. Os provedores de cotação são
+  testados com respostas simuladas (`httpx.MockTransport`), sem rede.
+- **Frontend**: a formatação brasileira (`src/format.test.ts`).
+- **Infraestrutura**: não há testes automatizados de Docker. Valide com `docker compose config -q` e com o
+  próprio `./scripts/deploy.sh`, que confere a saúde ponta a ponta.
 
 ## 7. Instalação do Docker
 
