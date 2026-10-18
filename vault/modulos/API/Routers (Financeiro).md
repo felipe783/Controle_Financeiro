@@ -24,6 +24,16 @@ Os routers ficam em `backend/app/routers/`. Cada um cria um `APIRouter(dependenc
 | `POST /quotes/update`, `GET /quotes/status` | atualização manual e status/logs dos provedores |
 | `GET/POST /fx` | câmbio |
 
+## `users.py`
+
+Router com `dependencies=[Depends(auth.require_admin)]`: usuário comum recebe **403** em todas as rotas.
+
+| Rotas | Função |
+|---|---|
+| `GET /users` | lista usuários (sem hash de senha) |
+| `POST /users` | cria usuário (`username` 3–64 de `A-Za-z0-9._-`, senha ≥ 12, `is_admin`); duplicata sem diferenciar maiúsculas → 409; criação e auditoria na mesma transação |
+| `PUT /users/{id}` | `is_admin`/`is_active`; não deixa remover o próprio acesso nem ficar sem admin ativo (contagem com `FOR UPDATE`); desativar apaga as sessões |
+
 ## `planning.py`
 
 | Rotas | Função |

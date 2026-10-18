@@ -24,6 +24,7 @@ O **frontend** (`frontend/`) é uma SPA React 18 + TypeScript compilada pelo Vit
 | `/patrimonio` | `NetWorth.tsx` | composição, evolução, dívidas e snapshot manual |
 | `/planejamento` | `Planning.tsx` | previsão, orçamentos, metas, recorrências |
 | `/cadastros` | `Settings.tsx` | categorias e auditoria |
+| `/usuarios` | `Users.tsx` | **só administradores** (fora disso redireciona ao Painel): criar usuário com validação igual à do backend, promover/rebaixar, desativar/reativar |
 
 - Valores da API chegam como texto decimal e só viram `number` para exibir ou desenhar gráficos.
 - O tema fica em `localStorage` (`tema`) e é aplicado por `public/theme.js` **antes** do React: a CSP do Nginx bloqueia script inline.

@@ -34,8 +34,9 @@ Sistema de **gestão financeira pessoal**: contas, receitas e despesas, transfer
 | Cotações automáticas e manuais ([[FN-RF 04|RF 04]]) | Implementado; provedores testados com respostas simuladas, sem chave real |
 | Patrimônio, snapshots, painel e gráficos ([[FN-RF 06|RF 06]]) | Implementado |
 | Orçamentos, metas e previsão ([[FN-RF 07|RF 07]]) | Implementado |
-| Autenticação (usuário único, Argon2, sessão em cookie) | Implementado |
-| Testes automatizados | 62 testes `pytest` e 3 `vitest` passando em 2026-10-18 |
+| Autenticação (Argon2, sessão em cookie) e logout real | Implementado; logout corrigido em 2026-10-18 |
+| Gestão de usuários com papéis administrador/usuário | Implementado em 2026-10-18 (`/api/users`, tela Usuários) |
+| Testes automatizados | 74 testes `pytest` e 3 `vitest` passando em 2026-10-18 |
 | Docker Compose, Nginx e scripts ([[FN-RF 08|RF 08]]) | Implementado; imagens **nunca construídas** (sem daemon Docker na máquina de desenvolvimento) |
 | Repositório remoto no GitHub (privado) | Pendente: `gh` não autenticado |
 
@@ -55,7 +56,7 @@ cd frontend && npm test && npm run typecheck && npm run build
 ```
 
 > Verificado em 2026-10-18 no Windows, com Python 3.14 e PostgreSQL 16 local:
-> - `pytest` (62 passando), `tsc`, `vitest` e `vite build`;
+> - `pytest` (74 passando), `tsc`, `vitest` e `vite build`;
 > - o app rodou com `uvicorn` + Vite e foi navegado no navegador do app;
 > - `bash -n` e ShellCheck nos scripts, e `docker compose config`.
 >
@@ -94,6 +95,9 @@ Revisados em 2026-10-18.
 > - Uma compra com data futura reduzia o patrimônio. O saldo "atual" agora considera efetivações até hoje.
 > - A edição de recorrência agora valida conta e categoria. Conta usada por recorrência ou operação não pode ser excluída (era 500).
 > - CSV: `1.500` agora é lido como 1500, e o ciclo exportar/importar preserva textos com prefixo anti-fórmula e observações.
+> - "Sair" encerrava a sessão no servidor, mas a tela continuava na página protegida com os dados: `qc.clear()` descartava a query `me` observada antes do `setQueryData(["me"], null)`. Agora `endSession` zera a query observada, remove o cache e volta ao login (verificado no navegador).
+> - Login sem diferenciar maiúsculas abria brecha no bloqueio (" felipe" ganhava novas tentativas); o nome é normalizado antes da chave do bloqueio.
+> - Rebaixamentos simultâneos podiam deixar o sistema sem administrador; a contagem usa `FOR UPDATE` (teste determinístico).
 
 ## Decisões
 
@@ -103,6 +107,7 @@ Revisados em 2026-10-18.
 - **O worker é um serviço separado** e segura um advisory lock do PostgreSQL numa **conexão dedicada**. O `Session` do SQLAlchemy devolve a conexão ao pool a cada commit, e o lock iria junto.
 - **Dois usuários no banco:** a aplicação conecta sem superusuário, e a senha do `postgres` só existe no container `db` (o Compose usa uma lista explícita de variáveis, sem `env_file`).
 - **Só o banco fica em rede `internal: true`.** API e worker também entram na rede `egress`, senão não alcançam os provedores de cotação.
+- **Papéis sem isolamento de dados:** `is_admin` só controla a gestão de usuários; os dados financeiros continuam compartilhados (uso familiar). A migração `0002` promoveu a admin todo usuário existente, porque até ali só existia o `create-admin`.
 - **Somente PostgreSQL, também nos testes:** o código depende de advisory locks, índices parciais e `ON CONFLICT`.
 
 ## Próximos passos sugeridos

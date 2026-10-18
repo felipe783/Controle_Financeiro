@@ -63,6 +63,8 @@ contagem e sem inventar valores. A metodologia de cálculo está em [docs/METODO
   estimativas identificadas.
 - **Planejamento:** orçamento mensal por categoria com alerta, metas com aportes e prazo, previsão de caixa.
 - **Cadastros:** categorias personalizáveis (com subcategorias) e trilha de auditoria.
+- **Usuários (administradores):** criar contas para outras pessoas, promover/rebaixar administradores e
+  desativar acessos (encerra as sessões na hora). O sistema impede ficar sem nenhum administrador ativo.
 - **Interface:** responsiva, tema claro/escuro, formatação brasileira, navegação por teclado, mensagens de
   sucesso e erro, estados de carregamento e vazios.
 
@@ -112,7 +114,7 @@ Financeiro/
 │   │   ├── auth.py            # Argon2, sessões, bloqueio de tentativas
 │   │   ├── services/          # ledger, investments, quotes, networth, reports, csv_io
 │   │   ├── providers/         # brapi, Alpha Vantage, PTAX
-│   │   ├── routers/           # endpoints REST
+│   │   ├── routers/           # endpoints REST (users.py: gestão de usuários, só admin)
 │   │   ├── worker.py          # tarefas programadas
 │   │   └── cli.py             # create-admin, status, check-db...
 │   ├── migrations/            # Alembic (versões em migrations/versions)
@@ -314,7 +316,7 @@ Todos funcionam de qualquer diretório (`/caminho/financeiro/scripts/status.sh`)
 | `status.sh` | containers, saúde, porta, API, banco, cotações, recursos |
 | `logs.sh [api\|worker\|web\|db\|migrate] [-f] [--tail N]` | logs (`-f` acompanha em tempo real) |
 | `stop.sh` | para os serviços sem remover nada |
-| `create-admin.sh [USUÁRIO]` / `--reset USUÁRIO` | cria usuário / troca senha |
+| `create-admin.sh [USUÁRIO]` / `--reset USUÁRIO` | cria um **administrador** / troca senha (os demais usuários são criados pela tela Usuários) |
 
 Exemplos:
 
@@ -393,8 +395,11 @@ volumes: não use `docker compose down -v`, que **apaga o banco**.
 ## 20. Segurança e limitações conhecidas
 
 **Implementado:**
-- Login obrigatório, senhas com Argon2id e sem senha padrão. O primeiro usuário é criado por comando
-  interativo.
+- Login obrigatório, senhas com Argon2id e sem senha padrão. O primeiro usuário é um administrador criado
+  por comando interativo; os demais são criados por um administrador na tela Usuários.
+- Papéis: **administrador** (gerencia usuários) e **usuário**. A permissão é verificada no servidor
+  (`/api/users` responde 403 a quem não é administrador), não só escondida na interface.
+- "Sair" apaga a sessão no servidor e o cookie, descarta os dados em cache no navegador e volta ao login.
 - Cookie de sessão HttpOnly e SameSite=Strict. O banco guarda só o hash do token. A sessão expira em 12 h
   (configurável).
 - Proteção contra CSRF (cabeçalho obrigatório em requisições que alteram dados).
@@ -421,8 +426,9 @@ frente, por exemplo Caddy (`financas.seudominio.com { reverse_proxy 127.0.0.1:80
 - A TIR só aparece com 30 dias ou mais de histórico. TWR não é calculada.
 - Não há regras tributárias automáticas: impostos e taxas são os valores informados.
 - Saldos negativos são permitidos (cheque especial). O sistema não bloqueia uma despesa por falta de saldo.
-- Não há autorização por usuário: todos os usuários cadastrados veem os mesmos dados (pensado para uso
-  pessoal ou de um casal).
+- Os dados financeiros são **compartilhados**: todos os usuários cadastrados veem e editam as mesmas contas,
+  lançamentos e investimentos (pensado para uso pessoal ou familiar). O papel de administrador só controla
+  quem gerencia usuários.
 - Cotações dependem da disponibilidade e dos termos de cada provedor. Leia os termos de uso antes de
   ativá-los.
 

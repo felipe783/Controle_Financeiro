@@ -4,6 +4,7 @@ As migrações ficam em `backend/migrations/versions/` (Alembic). `migrations/en
 
 | Versão | Conteúdo |
 |---|---|
+| `0002_papel_de_administrador` | `users.is_admin` + índice único em `lower(username)`; promove a admin todos os usuários já existentes (só havia o `create-admin`) e recusa, com mensagem clara, nomes que só diferem em maiúsculas |
 | `0001_schema_inicial` | todas as tabelas e restrições + categorias iniciais: despesas (Moradia, Alimentação, Transporte, Educação, Saúde, Lazer, Assinaturas, Compras, Impostos, Outros), receitas (Salário, Estágio, Freelance, Reembolso, Rendimentos, Outros) e as de sistema **Proventos** e **Taxas de investimento** |
 
 ## Como são aplicadas

@@ -11,6 +11,7 @@ Financeiro/
 	|  |  |  |--finance.py       ← contas, categorias, lançamentos, transferências, recorrências, CSV
 	|  |  |  |--invest.py        ← carteira, ativos, operações, cotações, câmbio
 	|  |  |  |--planning.py      ← painel, patrimônio, dívidas, orçamentos, metas, previsão, auditoria
+	|  |  |  |--users.py         ← gestão de usuários (só administradores)
 	|  |  |--📁 services
 	|  |  |  |--common.py        ← erros de domínio, auditoria
 	|  |  |  |--ledger.py        ← saldos, lançamentos, transferências, conciliação, recorrências
@@ -33,6 +34,7 @@ Financeiro/
 	|  |--📁 migrations
 	|  |  |--📁 versions
 	|  |  |  |--0001_schema_inicial.py
+	|  |  |  |--0002_papel_de_administrador.py
 	|  |  |--env.py
 	|  |--📁 tests             ← pytest (PostgreSQL isolado)
 	|  |--alembic.ini
@@ -42,7 +44,7 @@ Financeiro/
 	|  |  |--theme.js            ← tema claro/escuro antes do React (compatível com a CSP)
 	|  |--📁 src
 	|  |  |--📁 components       ← ui.tsx, charts.tsx, TransactionForms.tsx
-	|  |  |--📁 pages            ← Dashboard, Transactions, Accounts, Investments, NetWorth, Planning, Settings
+	|  |  |--📁 pages            ← Dashboard, Transactions, Accounts, Investments, NetWorth, Planning, Settings, Users
 	|  |  |--App.tsx / main.tsx / api.ts / hooks.ts / format.ts / types.ts
 	|  |  |--format.test.ts      ← vitest
 	|  |--package.json / package-lock.json / vite.config.ts / tailwind.config.js

@@ -13,7 +13,7 @@ Scripts Bash em `scripts/`. Todos usam `#!/usr/bin/env bash`, `set -Eeuo pipefai
 | `status.sh` | containers, saúde, porta, API pelo proxy, `pg_isready`, `app.cli status`, `docker stats` |
 | `logs.sh [api\|worker\|web\|db\|migrate] [-f] [--tail N]` | `docker compose logs` com timestamps |
 | `stop.sh` | `docker compose stop` (não remove containers, volumes nem configuração) |
-| `create-admin.sh [USUÁRIO]` / `--reset USUÁRIO` | cria usuário ou troca senha via `app.cli`, com a senha digitada sem eco |
+| `create-admin.sh [USUÁRIO]` / `--reset USUÁRIO` | cria um **administrador** ou troca senha via `app.cli`, com a senha digitada sem eco; os demais usuários são criados pela tela Usuários |
 
 Nenhum script executa `docker compose down -v`, `git reset --hard`, regras de firewall ou instalação do Docker.
 
