@@ -75,6 +75,19 @@ class TimestampMixin:
     )
 
 
+# Função criada na migração 0003: o usuário dono da transação atual (NULL se não houver).
+CURRENT_USER = text("app_user_id()")
+
+
+class OwnedMixin:
+    """Linha pertence a um usuário. O padrão vem do contexto da transação e as políticas de RLS do
+    PostgreSQL só deixam ver e gravar as linhas do próprio usuário (ver app/db.py e a migração 0003)."""
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True,
+                                         server_default=CURRENT_USER)
+
+
+
 class User(TimestampMixin, Base):
     __tablename__ = "users"
     # "Felipe" e "felipe" seriam o mesmo usuário para quem digita; o banco garante isso.
@@ -83,7 +96,7 @@ class User(TimestampMixin, Base):
     username: Mapped[str] = mapped_column(String(64), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    # Administrador gerencia usuários; os dados financeiros são compartilhados por todos (uso familiar).
+    # Administrador gerencia usuários; não enxerga os dados financeiros de ninguém além dos próprios.
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
 
 
@@ -97,11 +110,12 @@ class UserSession(Base):
     user: Mapped[User] = relationship()
 
 
-class Account(TimestampMixin, Base):
+class Account(OwnedMixin, TimestampMixin, Base):
     __tablename__ = "accounts"
-    __table_args__ = (_enum_check("type", ACCOUNT_TYPES, "ck_accounts_type"),)
+    __table_args__ = (_enum_check("type", ACCOUNT_TYPES, "ck_accounts_type"),
+                      UniqueConstraint("user_id", "name", name="uq_accounts_user_name"))
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True)
+    name: Mapped[str] = mapped_column(String(100))
     institution: Mapped[str | None] = mapped_column(String(100))
     type: Mapped[str] = mapped_column(String(20))
     initial_balance: Mapped[Decimal] = mapped_column(Money, default=Decimal("0"))
@@ -110,11 +124,11 @@ class Account(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
 
 
-class Category(TimestampMixin, Base):
+class Category(OwnedMixin, TimestampMixin, Base):
     __tablename__ = "categories"
     __table_args__ = (
         _enum_check("kind", CATEGORY_KINDS, "ck_categories_kind"),
-        UniqueConstraint("kind", "parent_id", "name", name="uq_categories_kind_parent_name",
+        UniqueConstraint("user_id", "kind", "parent_id", "name", name="uq_categories_user_kind_parent_name",
                          postgresql_nulls_not_distinct=True),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -126,7 +140,7 @@ class Category(TimestampMixin, Base):
     archived: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
-class RecurrenceRule(TimestampMixin, Base):
+class RecurrenceRule(OwnedMixin, TimestampMixin, Base):
     __tablename__ = "recurrence_rules"
     __table_args__ = (
         CheckConstraint("kind IN ('income','expense')", name="ck_recurrence_kind"),
@@ -154,7 +168,7 @@ class RecurrenceRule(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
 
 
-class Transaction(TimestampMixin, Base):
+class Transaction(OwnedMixin, TimestampMixin, Base):
     __tablename__ = "transactions"
     __table_args__ = (
         _enum_check("kind", TX_KINDS, "ck_transactions_kind"),
@@ -201,7 +215,7 @@ class Transaction(TimestampMixin, Base):
     category: Mapped[Category | None] = relationship()
 
 
-class Asset(TimestampMixin, Base):
+class Asset(OwnedMixin, TimestampMixin, Base):
     __tablename__ = "assets"
     __table_args__ = (_enum_check("asset_class", ASSET_CLASSES, "ck_assets_class"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -220,7 +234,7 @@ class Asset(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
 
 
-class InvestmentOperation(TimestampMixin, Base):
+class InvestmentOperation(OwnedMixin, TimestampMixin, Base):
     __tablename__ = "investment_operations"
     __table_args__ = (
         _enum_check("kind", OP_KINDS, "ck_ops_kind"),
@@ -251,7 +265,7 @@ class InvestmentOperation(TimestampMixin, Base):
     asset: Mapped[Asset] = relationship()
 
 
-class Quote(Base):
+class Quote(OwnedMixin, Base):
     """Cotação válida (automática ou manual). Nunca apagada por atualizações posteriores."""
 
     __tablename__ = "quotes"
@@ -278,7 +292,7 @@ class Quote(Base):
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
 
-class QuoteFetchLog(Base):
+class QuoteFetchLog(OwnedMixin, Base):
     __tablename__ = "quote_fetch_logs"
     __table_args__ = (Index("ix_quote_logs_received", "received_at"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -294,10 +308,11 @@ class QuoteFetchLog(Base):
     trigger: Mapped[str] = mapped_column(String(10), default="auto")  # auto | manual
 
 
-class FxRate(Base):
+class FxRate(OwnedMixin, Base):
     __tablename__ = "fx_rates"
     __table_args__ = (
-        UniqueConstraint("currency", "reference_date", "source", name="uq_fx_currency_date_source"),
+        UniqueConstraint("user_id", "currency", "reference_date", "source", name="uq_fx_user_currency_date_source",
+                         postgresql_nulls_not_distinct=True),
         CheckConstraint("rate > 0", name="ck_fx_rate_positive"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -308,7 +323,7 @@ class FxRate(Base):
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-class Liability(TimestampMixin, Base):
+class Liability(OwnedMixin, TimestampMixin, Base):
     __tablename__ = "liabilities"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
@@ -317,7 +332,7 @@ class Liability(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
 
 
-class LiabilityBalance(Base):
+class LiabilityBalance(OwnedMixin, Base):
     """Histórico do saldo devedor; o saldo numa data é o último registro até ela."""
 
     __tablename__ = "liability_balances"
@@ -332,10 +347,11 @@ class LiabilityBalance(Base):
     note: Mapped[str | None] = mapped_column(Text)
 
 
-class NetWorthSnapshot(Base):
+class NetWorthSnapshot(OwnedMixin, Base):
     __tablename__ = "net_worth_snapshots"
+    __table_args__ = (UniqueConstraint("user_id", "snapshot_date", name="uq_snapshots_user_date"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    snapshot_date: Mapped[dt.date] = mapped_column(Date, unique=True)
+    snapshot_date: Mapped[dt.date] = mapped_column(Date)
     cash: Mapped[Decimal] = mapped_column(Money)
     investments: Mapped[Decimal] = mapped_column(Money)
     invested_cost: Mapped[Decimal] = mapped_column(Money)
@@ -346,7 +362,7 @@ class NetWorthSnapshot(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-class Budget(TimestampMixin, Base):
+class Budget(OwnedMixin, TimestampMixin, Base):
     __tablename__ = "budgets"
     __table_args__ = (
         UniqueConstraint("category_id", "month", name="uq_budgets_category_month"),
@@ -359,7 +375,7 @@ class Budget(TimestampMixin, Base):
     amount: Mapped[Decimal] = mapped_column(Money)
 
 
-class Goal(TimestampMixin, Base):
+class Goal(OwnedMixin, TimestampMixin, Base):
     __tablename__ = "goals"
     __table_args__ = (CheckConstraint("target_amount > 0", name="ck_goals_target"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -370,7 +386,7 @@ class Goal(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
 
 
-class GoalContribution(Base):
+class GoalContribution(OwnedMixin, Base):
     __tablename__ = "goal_contributions"
     __table_args__ = (CheckConstraint("amount <> 0", name="ck_goal_contrib_amount"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -386,7 +402,8 @@ class AuditLog(Base):
     __table_args__ = (Index("ix_audit_entity", "entity", "entity_id"),)
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"),
+                                                server_default=CURRENT_USER)
     entity: Mapped[str] = mapped_column(String(40))
     entity_id: Mapped[int | None] = mapped_column(Integer)
     action: Mapped[str] = mapped_column(String(20))

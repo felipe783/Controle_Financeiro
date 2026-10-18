@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
-from app.db import new_session, reset_engine
+from app.db import new_session, reset_engine, set_session_user
 from app.models import Transaction
 from app.services import networth
 from tests.conftest import PASSWORD, cat_id
@@ -104,6 +104,8 @@ def test_data_persists_after_restart(client):
     tx(client, acc, "income", "123.45")
     reset_engine()  # simula reinício do processo: descarta conexões e caches
     with new_session() as db:
+        assert db.scalar(select(func.count()).select_from(Transaction)) == 0  # sem dono no contexto: nada
+        set_session_user(db, 1)
         assert db.scalar(select(func.count()).select_from(Transaction)) == 1
 
 

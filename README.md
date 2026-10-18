@@ -63,6 +63,8 @@ contagem e sem inventar valores. A metodologia de cálculo está em [docs/METODO
   estimativas identificadas.
 - **Planejamento:** orçamento mensal por categoria com alerta, metas com aportes e prazo, previsão de caixa.
 - **Cadastros:** categorias personalizáveis (com subcategorias) e trilha de auditoria.
+- **Dados por usuário:** cada pessoa tem as próprias contas, lançamentos, investimentos, patrimônio,
+  orçamentos e metas. O isolamento é garantido pelo PostgreSQL (Row-Level Security), não só pela interface.
 - **Usuários (administradores):** criar contas para outras pessoas, promover/rebaixar administradores e
   desativar acessos (encerra as sessões na hora). O sistema impede ficar sem nenhum administrador ativo.
 - **Interface:** responsiva, tema claro/escuro, formatação brasileira, navegação por teclado, mensagens de
@@ -148,16 +150,19 @@ O jeito mais simples de rodar localmente é o próprio Docker (seção 9) com `A
 desenvolver com recarga automática:
 
 ```bash
-# 1) PostgreSQL de desenvolvimento só na máquina local
+# 1) PostgreSQL de desenvolvimento só na máquina local.
+#    A aplicação e os testes usam papéis SEM superusuário: superusuários ignoram o Row-Level Security
+#    e enxergariam os dados de todos os usuários (os testes se recusam a rodar como superusuário).
 docker run -d --name financeiro-dev-db -e POSTGRES_PASSWORD=dev -p 127.0.0.1:5432:5432 postgres:17.9-alpine3.23
-docker exec financeiro-dev-db createdb -U postgres financeiro_dev
-docker exec financeiro-dev-db createdb -U postgres financeiro_test
+docker exec financeiro-dev-db psql -U postgres -c "CREATE ROLE fin_app LOGIN PASSWORD 'dev'" \
+  -c "CREATE DATABASE financeiro_dev OWNER fin_app" \
+  -c "CREATE ROLE fin_test LOGIN PASSWORD 'dev'" -c "CREATE DATABASE financeiro_test OWNER fin_test"
 
 # 2) Backend (porta 8000)
 cd backend
 python -m venv ../.venv && source ../.venv/bin/activate      # Windows: ..\.venv\Scripts\activate
 pip install -r requirements-dev.txt
-export DATABASE_URL=postgresql+psycopg://postgres:dev@127.0.0.1:5432/financeiro_dev APP_ENV=development
+export DATABASE_URL=postgresql+psycopg://fin_app:dev@127.0.0.1:5432/financeiro_dev APP_ENV=development
 alembic upgrade head
 python -m app.cli create-admin
 uvicorn app.main:app --reload --port 8000
@@ -169,7 +174,7 @@ cd ../frontend && npm ci && npm run dev
 Testes:
 
 ```bash
-cd backend && TEST_DATABASE_URL=postgresql+psycopg://postgres:dev@127.0.0.1:5432/financeiro_test pytest -q
+cd backend && TEST_DATABASE_URL=postgresql+psycopg://fin_test:dev@127.0.0.1:5432/financeiro_test pytest -q
 cd frontend && npm test && npm run typecheck
 ```
 
@@ -377,6 +382,10 @@ volumes: não use `docker compose down -v`, que **apaga o banco**.
   versão nova com `alembic revision --autogenerate -m "descrição"`, revise o arquivo e teste com `pytest`.
   Os testes aplicam todas as migrações num banco vazio.
 - Ver a versão atual: `docker compose exec api python -m app.cli check-db`.
+- **`0003_dados_por_usuario_com_rls` apaga os dados financeiros existentes** (contas, lançamentos,
+  investimentos, patrimônio, orçamentos, metas e auditoria) ao separar os dados por usuário. Usuários e senhas
+  são mantidos, e cada um recebe de novo as categorias padrão. O `update.sh` faz backup antes de migrar; para
+  voltar, restaure esse backup e permaneça na versão anterior (o `downgrade` recria o esquema, não os dados).
 
 ## 19. Diagnóstico de erros
 
@@ -400,6 +409,10 @@ volumes: não use `docker compose down -v`, que **apaga o banco**.
 - Papéis: **administrador** (gerencia usuários) e **usuário**. A permissão é verificada no servidor
   (`/api/users` responde 403 a quem não é administrador), não só escondida na interface.
 - "Sair" apaga a sessão no servidor e o cookie, descarta os dados em cache no navegador e volta ao login.
+- **Isolamento por usuário no banco:** todas as tabelas financeiras têm `user_id` e políticas de Row-Level
+  Security forçadas (`FORCE ROW LEVEL SECURITY`). A cada transação a API informa o usuário logado
+  (`app.user_id`); sem ele o banco não devolve nenhuma linha, e gravar uma linha para outro usuário é recusado
+  pelo próprio PostgreSQL. O administrador gerencia acessos, mas **não vê** as finanças dos outros.
 - Cookie de sessão HttpOnly e SameSite=Strict. O banco guarda só o hash do token. A sessão expira em 12 h
   (configurável).
 - Proteção contra CSRF (cabeçalho obrigatório em requisições que alteram dados).
@@ -426,9 +439,11 @@ frente, por exemplo Caddy (`financas.seudominio.com { reverse_proxy 127.0.0.1:80
 - A TIR só aparece com 30 dias ou mais de histórico. TWR não é calculada.
 - Não há regras tributárias automáticas: impostos e taxas são os valores informados.
 - Saldos negativos são permitidos (cheque especial). O sistema não bloqueia uma despesa por falta de saldo.
-- Os dados financeiros são **compartilhados**: todos os usuários cadastrados veem e editam as mesmas contas,
-  lançamentos e investimentos (pensado para uso pessoal ou familiar). O papel de administrador só controla
-  quem gerencia usuários.
+- O isolamento vale para quem conecta como o usuário da aplicação (`POSTGRES_USER`). Quem acessa o banco como
+  superusuário `postgres` (por exemplo, `backup.sh`, que precisa disso para copiar tudo) enxerga os dados de
+  todos: proteja o servidor e os arquivos de backup.
+- Cotações automáticas: um ticker é consultado uma vez por rodada mesmo que vários usuários o tenham, e o
+  limite diário da Alpha Vantage é contado somando todos os usuários (é um limite da chave).
 - Cotações dependem da disponibilidade e dos termos de cada provedor. Leia os termos de uso antes de
   ativá-los.
 

@@ -30,13 +30,15 @@ Financeiro/
 	|  |  |--money.py            ← regras de Decimal e arredondamento
 	|  |  |--schemas.py          ← contratos Pydantic
 	|  |  |--serialize.py        ← Decimal → texto no JSON
-	|  |  |--worker.py           ← agendador único
+	|  |  |--seed.py             ← categorias padrão de cada usuário novo
+	|  |  |--worker.py           ← agendador único (roda por usuário)
 	|  |--📁 migrations
 	|  |  |--📁 versions
 	|  |  |  |--0001_schema_inicial.py
 	|  |  |  |--0002_papel_de_administrador.py
+	|  |  |  |--0003_dados_por_usuario_com_rls.py
 	|  |  |--env.py
-	|  |--📁 tests             ← pytest (PostgreSQL isolado)
+	|  |--📁 tests             ← pytest (PostgreSQL isolado, papel sem superusuário; test_isolation.py)
 	|  |--alembic.ini
 	|  |--requirements.txt / requirements-dev.txt
 	📁 frontend

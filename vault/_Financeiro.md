@@ -36,7 +36,8 @@ Sistema de **gestão financeira pessoal**: contas, receitas e despesas, transfer
 | Orçamentos, metas e previsão ([[FN-RF 07|RF 07]]) | Implementado |
 | Autenticação (Argon2, sessão em cookie) e logout real | Implementado; logout corrigido em 2026-10-18 |
 | Gestão de usuários com papéis administrador/usuário | Implementado em 2026-10-18 (`/api/users`, tela Usuários) |
-| Testes automatizados | 74 testes `pytest` e 3 `vitest` passando em 2026-10-18 |
+| Dados financeiros isolados por usuário (Row-Level Security) | Implementado em 2026-10-18 (migração `0003`); verificado em testes e no navegador |
+| Testes automatizados | 88 testes `pytest` (como papel sem superusuário) e 3 `vitest` passando em 2026-10-18 |
 | Docker Compose, Nginx e scripts ([[FN-RF 08|RF 08]]) | Implementado; imagens **nunca construídas** (sem daemon Docker na máquina de desenvolvimento) |
 | Repositório remoto no GitHub (privado) | Pendente: `gh` não autenticado |
 
@@ -51,12 +52,13 @@ Sistema de **gestão financeira pessoal**: contas, receitas e despesas, transfer
 Desenvolvimento e testes (exigem um PostgreSQL; o banco de teste precisa ter `test` no nome):
 
 ```bash
-cd backend && TEST_DATABASE_URL=postgresql+psycopg://postgres:SENHA@127.0.0.1:5432/financeiro_test python -m pytest -q
+# papel SEM superusuário (superusuário ignora o RLS; o conftest recusa)
+cd backend && TEST_DATABASE_URL=postgresql+psycopg://fin_test:SENHA@127.0.0.1:5432/financeiro_test python -m pytest -q
 cd frontend && npm test && npm run typecheck && npm run build
 ```
 
 > Verificado em 2026-10-18 no Windows, com Python 3.14 e PostgreSQL 16 local:
-> - `pytest` (74 passando), `tsc`, `vitest` e `vite build`;
+> - `pytest` (88 passando, como `fin_test`, sem superusuário), `tsc`, `vitest` e `vite build`;
 > - o app rodou com `uvicorn` + Vite e foi navegado no navegador do app;
 > - `bash -n` e ShellCheck nos scripts, e `docker compose config`.
 >
@@ -107,7 +109,9 @@ Revisados em 2026-10-18.
 - **O worker é um serviço separado** e segura um advisory lock do PostgreSQL numa **conexão dedicada**. O `Session` do SQLAlchemy devolve a conexão ao pool a cada commit, e o lock iria junto.
 - **Dois usuários no banco:** a aplicação conecta sem superusuário, e a senha do `postgres` só existe no container `db` (o Compose usa uma lista explícita de variáveis, sem `env_file`).
 - **Só o banco fica em rede `internal: true`.** API e worker também entram na rede `egress`, senão não alcançam os provedores de cotação.
-- **Papéis sem isolamento de dados:** `is_admin` só controla a gestão de usuários; os dados financeiros continuam compartilhados (uso familiar). A migração `0002` promoveu a admin todo usuário existente, porque até ali só existia o `create-admin`.
+- **Dados isolados por usuário com Row-Level Security** (migração `0003`, decisão de 2026-10-18): toda tabela financeira tem `user_id` com padrão `app_user_id()` e política `owner_only`, com `FORCE ROW LEVEL SECURITY`. A API grava o usuário em `app.user_id` a cada transação (`app/db.py`); sem ele o banco não devolve nada. O admin só gerencia acessos e **não vê** finanças alheias. Os dados anteriores foram apagados por decisão do dono (não tinham dono definido). Nem o câmbio é global: a PTAX é consultada uma vez por rodada e gravada por usuário. Ver [[Models (Financeiro)|Models]].
+- **A checagem de chave estrangeira ignora o RLS:** ids recebidos do cliente passam por `get_or_404` antes de serem gravados; `tests/test_isolation.py` cobre cada referência.
+- **Testes rodam como papel comum:** superusuário ignora o RLS e esconderia vazamentos. Prova feita em 2026-10-18: com o RLS desligado, 12 dos 14 testes de isolamento falham.
 - **Somente PostgreSQL, também nos testes:** o código depende de advisory locks, índices parciais e `ON CONFLICT`.
 
 ## Próximos passos sugeridos

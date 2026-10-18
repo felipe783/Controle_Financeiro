@@ -8,8 +8,10 @@ Responsabilidades:
 - reaproveitar consultas recentes (5 min no manual; intervalo − 1 min no automático);
 - respeitar o ritmo mínimo entre requisições e o limite diário da Alpha Vantage;
 - inserir ou atualizar a cotação `auto` do dia sem tocar nas manuais;
-- registrar cada consulta em `quote_fetch_logs` e o resumo em `system_status['quotes_last_run']`;
-- atualizar o câmbio PTAX das moedas em uso.
+- registrar cada consulta em `quote_fetch_logs` e o resumo em `system_status['quotes_last_run:<usuário>']`;
+- atualizar o câmbio PTAX das moedas em uso pelo usuário (consulta única por rodada via `cache`, gravada para cada usuário);
+- atualizar só os ativos do usuário da sessão; o `cache` da rodada do worker evita consultar o mesmo ticker de novo para outro usuário;
+- contar o limite diário da Alpha Vantage somando todos os usuários (`system_status['provider_calls:...']`), porque o log de cada usuário só enxerga as próprias consultas.
 
 # Funcionalidades
 

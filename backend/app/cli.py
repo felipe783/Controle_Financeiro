@@ -15,8 +15,9 @@ import sys
 from sqlalchemy import func, select, text
 
 from app import auth
-from app.db import new_session
-from app.models import Asset, SystemStatus, User
+from app.db import new_session, set_session_user
+from app.models import Account, Asset, SystemStatus, User
+from app.services.quotes import status_key
 
 
 def _ask_password() -> str:
@@ -49,13 +50,21 @@ def main(argv: list[str]) -> int:
                     return 1
                 print(f"Worker ativo (último batimento há {int(age)} s).")
             elif cmd == "status":
-                last = db.get(SystemStatus, "quotes_last_run")
                 beat = db.get(SystemStatus, "worker_heartbeat")
+                per_user = {}
+                for user in db.scalars(select(User).order_by(User.id)).all():
+                    set_session_user(db, user.id)
+                    last = db.get(SystemStatus, status_key(user.id))
+                    per_user[user.username] = {
+                        "ativo": user.is_active, "admin": user.is_admin,
+                        "contas": db.scalar(select(func.count()).select_from(Account)),
+                        "ativos_investimento": db.scalar(select(func.count()).select_from(Asset)),
+                        "cotacoes_ultima_execucao": (last.value or {}).get("finished_at") if last else None,
+                    }
+                set_session_user(db, None)
                 print(json.dumps({
-                    "usuarios": db.scalar(select(func.count()).select_from(User)),
-                    "ativos": db.scalar(select(func.count()).select_from(Asset)),
                     "worker_ultimo_batimento": beat.updated_at.isoformat() if beat else None,
-                    "cotacoes_ultima_execucao": last.value if last else None,
+                    "usuarios": per_user,
                 }, ensure_ascii=False, indent=2, default=str))
             else:
                 print(__doc__)

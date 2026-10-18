@@ -47,5 +47,7 @@ def snapshot(obj) -> dict[str, Any]:
 
 def audit(db: Session, entity: str, entity_id: int | None, action: str,
           before: dict | None = None, after: dict | None = None, user_id: int | None = None) -> None:
-    db.add(AuditLog(entity=entity, entity_id=entity_id, action=action, before=before, after=after,
-                    user_id=user_id))
+    entry = AuditLog(entity=entity, entity_id=entity_id, action=action, before=before, after=after)
+    if user_id is not None:  # sem quem agiu explícito, o banco usa o usuário dono da transação
+        entry.user_id = user_id
+    db.add(entry)

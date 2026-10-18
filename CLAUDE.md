@@ -29,7 +29,8 @@ Conceitos transversais: `E:/Downloads/!Faculdade/Contexto Projetos/Conhecimento/
 
 ```powershell
 # testes do backend: exigem um PostgreSQL; o nome do banco precisa conter "test" (o schema é recriado)
-cd backend; $env:TEST_DATABASE_URL="postgresql+psycopg://postgres:SENHA@127.0.0.1:5432/financeiro_test"; ..\.venv\Scripts\python -m pytest -q
+# o papel NÃO pode ser superusuário (superusuário ignora o RLS e o conftest recusa)
+cd backend; $env:TEST_DATABASE_URL="postgresql+psycopg://fin_test:SENHA@127.0.0.1:5432/financeiro_test"; ..\.venv\Scripts\python -m pytest -q
 
 cd frontend; npm test; npm run typecheck; npm run build
 
@@ -40,6 +41,14 @@ cd frontend; npm test; npm run typecheck; npm run build
 **Peça autorização antes de instalar dependências.**
 
 ## Regras deste projeto
+
+- **Dados por usuário com RLS.** Toda tabela financeira nova usa `OwnedMixin` e ganha, na migração, `ENABLE` +
+  `FORCE ROW LEVEL SECURITY` e a política `owner_only` (ver `0003_dados_por_usuario_com_rls.py`). Não existe dado
+  "global": até o câmbio PTAX é gravado por usuário, porque uma linha comum revelaria as moedas de outra pessoa.
+  O `user_id` vem do contexto (`app_user_id()`); não o passe à mão. Código fora de uma requisição (worker, CLI)
+  precisa de `set_session_user`.
+- **Ids vindos do cliente** (conta, categoria, ativo, meta, dívida...) passam por uma busca filtrada pelo RLS
+  (`get_or_404`) antes de serem gravados: a checagem de chave estrangeira do PostgreSQL ignora o RLS.
 
 - **Dinheiro é `Decimal`**, nunca `float`: `Numeric(18,2)` para dinheiro e `Numeric(24,8)` para quantidade e preço (`app/money.py`). A API trafega valores como **texto decimal**.
 - **Saldo nunca é armazenado.** É calculado em `ledger.balances` (saldo inicial + lançamentos `settled` até a data). Não crie colunas de saldo.

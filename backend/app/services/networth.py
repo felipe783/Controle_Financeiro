@@ -86,7 +86,7 @@ def take_snapshot(db: Session) -> NetWorthSnapshot:
                   invested_cost=nw["invested_cost"], liabilities=nw["liabilities"], gross=nw["gross"],
                   net=nw["net"], details=_details(nw))
     stmt = pg_insert(NetWorthSnapshot).values(**values)
-    db.execute(stmt.on_conflict_do_update(index_elements=["snapshot_date"],
+    db.execute(stmt.on_conflict_do_update(index_elements=["user_id", "snapshot_date"],
                                           set_={**{k: v for k, v in values.items() if k != "snapshot_date"},
                                                 "created_at": func.now()}))
     db.commit()

@@ -9,7 +9,8 @@ Responsabilidades:
 - nome de usuário **sem diferenciar maiúsculas** no login, no cadastro e no `reset-password` (índice único em `lower(username)`);
 - bloqueio de `LOGIN_MAX_ATTEMPTS` (5) tentativas por usuário normalizado + IP durante `LOGIN_LOCK_MINUTES` (15);
 - quando o usuário não existe, a senha é verificada contra um hash fictício, para o tempo de resposta não revelar isso;
-- papéis: `is_admin` só controla a gestão de usuários (`require_admin`). Os dados financeiros são compartilhados.
+- papéis: `is_admin` só controla a gestão de usuários (`require_admin`). Os dados financeiros são de cada usuário: `current_user` chama `set_session_user`, e o PostgreSQL só mostra as linhas desse usuário (o admin não vê as dos outros);
+- criar usuário (`create_user`) também cria as categorias padrão dele, na mesma transação (`app/seed.py`).
 
 # Funcionalidades
 

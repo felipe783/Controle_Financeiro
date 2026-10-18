@@ -21,8 +21,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.db import get_db
+from app.db import get_db, set_session_user
 from app.models import User, UserSession
+from app.seed import seed_user
 
 COOKIE = "fin_session"
 _ph = PasswordHasher()
@@ -108,7 +109,9 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User:
     sess = db.scalar(select(UserSession).where(UserSession.token_hash == _token_hash(token)))
     if sess is None or sess.expires_at < dt.datetime.now(dt.timezone.utc) or not sess.user.is_active:
         raise HTTPException(401, "Sessão expirada. Entre novamente.")
-    return sess.user
+    user = sess.user
+    set_session_user(db, user.id)  # daqui em diante o banco só mostra e aceita dados deste usuário
+    return user
 
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9._-]{3,64}$")
@@ -135,10 +138,13 @@ def create_user(db: Session, username: str, password: str, is_admin: bool = Fals
     user = User(username=username, password_hash=hash_password(password), is_active=True, is_admin=is_admin)
     db.add(user)
     try:
-        db.commit() if commit else db.flush()
+        db.flush()
     except IntegrityError as exc:  # cadastro simultâneo com o mesmo nome
         db.rollback()
         raise DuplicateUser("Já existe um usuário com esse nome.") from exc
+    seed_user(db, user.id)  # categorias padrão na mesma transação: ou o usuário nasce completo, ou não nasce
+    if commit:
+        db.commit()
     return user
 
 

@@ -24,7 +24,7 @@ export default function Users({ me }: { me: Me }) {
   return (
     <div className="space-y-6">
       <PageHeader title="Usuários"
-        description="Todos os usuários veem e editam os mesmos dados financeiros. Administradores também gerenciam usuários." />
+        description="Cada usuário tem os próprios dados financeiros, que ninguém mais vê, nem o administrador. Aqui você cria e gerencia os acessos." />
       <Card title="Novo usuário"><NewUserForm /></Card>
       <Card title="Usuários cadastrados">
         <ErrorBox error={users.error} />

@@ -144,8 +144,8 @@ def update_quotes(asset_id: int | None = None, db: Session = Depends(get_db)):
 
 
 @router.get("/quotes/status")
-def quotes_status(db: Session = Depends(get_db)):
-    last = db.get(SystemStatus, "quotes_last_run")
+def quotes_status(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    last = db.get(SystemStatus, quotes.status_key(user.id))
     worker = db.get(SystemStatus, "worker_heartbeat")
     logs = db.scalars(select(QuoteFetchLog).order_by(QuoteFetchLog.received_at.desc()).limit(50)).all()
     names = dict(db.execute(select(Asset.id, Asset.ticker)).all())

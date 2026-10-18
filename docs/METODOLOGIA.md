@@ -119,6 +119,10 @@ corrigidos manualmente editando a operação.
 
 ## 6. Patrimônio
 
+Todos os cálculos deste documento valem **por usuário**: cada um tem as próprias contas, investimentos,
+dívidas, câmbio e snapshots, isolados no banco por Row-Level Security. A taxa PTAX é consultada uma vez por
+rodada e gravada para cada usuário que tem ativos naquela moeda.
+
 ```
 ativos   = Σ saldos de TODAS as contas (inclusive o caixa da corretora) + Σ valor dos investimentos
 passivos = Σ último saldo devedor registrado de cada dívida até a data

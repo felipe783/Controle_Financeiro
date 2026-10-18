@@ -40,7 +40,20 @@ def provider_for(asset: Asset, providers):
     return next((p for p in providers if p.supports(asset.asset_class, asset.currency)), None)
 
 
+def current_owner(db: Session) -> int:
+    uid = db.info.get("user_id")
+    if uid is None:
+        raise RuntimeError("Atualização de cotações sem usuário no contexto.")
+    return uid
+
+
+def status_key(user_id: int) -> str:
+    return f"quotes_last_run:{user_id}"
+
+
 def _log(db: Session, **kw) -> None:
+    """Todo log pertence ao usuário da sessão (inclusive o de câmbio, que revelaria suas moedas)."""
+    current_owner(db)  # falha explícita sem contexto, em vez de NOT NULL no banco
     db.add(QuoteFetchLog(**kw))
     db.commit()
 
@@ -51,11 +64,20 @@ def _set_status(db: Session, key: str, value: dict) -> None:
     db.commit()
 
 
+def _calls_key(provider: str) -> str:
+    return f"provider_calls:{provider}:{dt.date.today().isoformat()}"
+
+
 def _daily_count(db: Session, provider: str) -> int:
-    start = dt.datetime.combine(dt.date.today(), dt.time.min).astimezone()
-    return db.scalar(select(func.count()).select_from(QuoteFetchLog).where(
-        QuoteFetchLog.provider == provider, QuoteFetchLog.received_at >= start,
-        QuoteFetchLog.status.in_(("ok", "error", "not_found")))) or 0
+    """Chamadas de hoje ao provedor, somando todos os usuários (o limite do plano é da chave, não do usuário).
+    Contador global em system_status, porque o log de cada usuário só enxerga as próprias consultas."""
+    row = db.get(SystemStatus, _calls_key(provider))
+    return int(row.value.get("n", 0)) if row else 0
+
+
+def _count_call(db: Session, provider: str) -> None:
+    n = _daily_count(db, provider) + 1  # seguro: só um atualizador roda por vez (advisory lock)
+    _set_status(db, _calls_key(provider), {"n": n})
 
 
 def _recent_auto(db: Session, asset_id: int, minutes: int) -> bool:
@@ -67,8 +89,12 @@ def _recent_auto(db: Session, asset_id: int, minutes: int) -> bool:
 
 def update_all(db: Session, trigger: str = "auto", asset_ids: list[int] | None = None,
                client: httpx.Client | None = None, providers=None, fx_provider=None,
-               on_progress=None) -> dict:
-    """Atualiza cotações e câmbio. Retorna um resumo; nunca lança por falha de um ativo."""
+               on_progress=None, cache: dict | None = None) -> dict:
+    """Atualiza as cotações e o câmbio do usuário da sessão. Retorna um resumo; nunca lança por falha de
+    um ativo. `cache` (do worker) reaproveita a resposta de um ticker já consultado na mesma rodada para
+    outro usuário, sem nova chamada ao provedor."""
+    owner = current_owner(db)
+    cache = {} if cache is None else cache
     # Conexão dedicada: o Session devolve a conexão ao pool a cada commit, o que perderia o lock de sessão.
     lock_conn = db.get_bind().connect()
     if not lock_conn.scalar(text("SELECT pg_try_advisory_lock(:k)"), {"k": QUOTES_LOCK_KEY}):
@@ -99,17 +125,26 @@ def update_all(db: Session, trigger: str = "auto", asset_ids: list[int] | None =
             if _recent_auto(db, asset.id, cache_minutes):
                 summary["skipped"] += 1
                 continue
-            if prov.name == "alphavantage" and _daily_count(db, prov.name) >= s.alphavantage_daily_limit:
-                _log(db, asset_id=asset.id, provider=prov.name, status="rate_limited", trigger=trigger,
-                     error_message="Limite diário configurado (ALPHAVANTAGE_DAILY_LIMIT) atingido.")
-                summary["errors"] += 1
-                continue
-            wait = s.quotes_min_seconds_between_requests - (time.monotonic() - last_call.get(prov.name, 0))
-            if wait > 0:
-                time.sleep(wait)
-            last_call[prov.name] = time.monotonic()
+            key = ("quote", prov.name, asset.ticker)
+            if key not in cache:
+                if prov.name == "alphavantage" and _daily_count(db, prov.name) >= s.alphavantage_daily_limit:
+                    _log(db, asset_id=asset.id, provider=prov.name, status="rate_limited", trigger=trigger,
+                         error_message="Limite diário configurado (ALPHAVANTAGE_DAILY_LIMIT) atingido.")
+                    summary["errors"] += 1
+                    continue
+                wait = s.quotes_min_seconds_between_requests - (time.monotonic() - last_call.get(prov.name, 0))
+                if wait > 0:
+                    time.sleep(wait)
+                last_call[prov.name] = time.monotonic()
+                try:
+                    cache[key] = prov.fetch(client, asset.ticker)
+                except ProviderError as exc:
+                    cache[key] = exc
+                _count_call(db, prov.name)
             try:
-                r = prov.fetch(client, asset.ticker)
+                r = cache[key]
+                if isinstance(r, ProviderError):
+                    raise r
             except ProviderError as exc:
                 log.warning("cotacao falhou ativo=%s provedor=%s status=%s", asset.id, prov.name, exc.status)
                 _log(db, asset_id=asset.id, provider=prov.name, status=exc.status, error_message=exc.message,
@@ -133,22 +168,29 @@ def update_all(db: Session, trigger: str = "auto", asset_ids: list[int] | None =
         if fx_provider is not None:
             currencies = db.scalars(select(Asset.currency).where(Asset.currency != "BRL").distinct()).all()
             for cur in currencies:
-                try:
-                    r = fx_provider.fetch_rate(client, cur, dt.date.today())
-                except ProviderError as exc:
-                    _log(db, currency_pair=f"{cur}BRL", provider=fx_provider.name, status=exc.status,
-                         error_message=exc.message, trigger=trigger)
+                # Gravado para o usuário da sessão (não como linha global): a moeda e o horário da consulta
+                # revelariam que outra pessoa tem ativos nela. O cache evita repetir a chamada ao provedor.
+                key = ("fx", fx_provider.name, cur)
+                if key not in cache:
+                    try:
+                        cache[key] = fx_provider.fetch_rate(client, cur, dt.date.today())
+                    except ProviderError as exc:
+                        cache[key] = exc
+                r = cache[key]
+                if isinstance(r, ProviderError):
+                    _log(db, currency_pair=f"{cur}BRL", provider=fx_provider.name, status=r.status,
+                         error_message=r.message, trigger=trigger)
                     summary["fx_errors"] += 1
                     continue
-                stmt = pg_insert(FxRate).values(currency=cur, rate=r.price, reference_date=r.reference_date,
-                                                source=fx_provider.name)
-                db.execute(stmt.on_conflict_do_update(constraint="uq_fx_currency_date_source",
+                stmt = pg_insert(FxRate).values(currency=cur, rate=r.price,
+                                                reference_date=r.reference_date, source=fx_provider.name)
+                db.execute(stmt.on_conflict_do_update(constraint="uq_fx_user_currency_date_source",
                                                       set_={"rate": r.price, "received_at": func.now()}))
                 _log(db, currency_pair=f"{cur}BRL", provider=fx_provider.name, status="ok", price=r.price,
                      currency="BRL", reference_date=r.reference_date, trigger=trigger)
                 summary["fx_ok"] += 1
         summary["finished_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
-        _set_status(db, "quotes_last_run", summary)
+        _set_status(db, status_key(owner), summary)
         log.info("cotacoes atualizadas ok=%s erros=%s ignoradas=%s", summary["ok"], summary["errors"],
                  summary["skipped"])
         return summary
@@ -161,9 +203,11 @@ def update_all(db: Session, trigger: str = "auto", asset_ids: list[int] | None =
 
 
 def add_manual_fx(db: Session, currency: str, rate, reference_date: dt.date) -> FxRate:
+    """Câmbio manual vale só para quem o registrou; o PTAX automático é compartilhado."""
+    owner = current_owner(db)
     stmt = pg_insert(FxRate).values(currency=currency, rate=rate, reference_date=reference_date, source="manual")
-    db.execute(stmt.on_conflict_do_update(constraint="uq_fx_currency_date_source",
+    db.execute(stmt.on_conflict_do_update(constraint="uq_fx_user_currency_date_source",
                                           set_={"rate": rate, "received_at": func.now()}))
     db.commit()
-    return db.scalar(select(FxRate).where(FxRate.currency == currency, FxRate.reference_date == reference_date,
-                                          FxRate.source == "manual"))
+    return db.scalar(select(FxRate).where(FxRate.user_id == owner, FxRate.currency == currency,
+                                          FxRate.reference_date == reference_date, FxRate.source == "manual"))

@@ -2,7 +2,7 @@
 
 ## Worker (`backend/app/worker.py`)
 
-Serviço `worker` do Compose. Segura o advisory lock `815000` numa conexão dedicada: um segundo worker fica em espera, verificando a cada 30 s. O ciclo roda a cada 60 s:
+Serviço `worker` do Compose. Segura o advisory lock `815000` numa conexão dedicada: um segundo worker fica em espera, verificando a cada 30 s. Como os dados são isolados por RLS, cada tarefa roda **para cada usuário ativo, no contexto dele** (`set_session_user`); a falha de um usuário não interrompe os outros. O ciclo roda a cada 60 s:
 - grava o batimento em `system_status['worker_heartbeat']`, inclusive a cada ativo durante atualizações longas (`on_progress`);
 - a cada hora, gera recorrências e registra o snapshot patrimonial do dia;
 - a cada `QUOTES_UPDATE_INTERVAL_MINUTES` (se `QUOTES_AUTO_UPDATE=true`), atualiza as cotações;

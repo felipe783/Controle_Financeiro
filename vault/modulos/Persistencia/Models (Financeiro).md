@@ -19,6 +19,14 @@
 | `audit_logs` | antes/depois das alterações | — |
 | `system_status` | batimento do worker e última atualização | chave primária `key` |
 
+## Dono de cada linha (Row-Level Security)
+
+- `OwnedMixin`: `user_id` NOT NULL com padrão `app_user_id()` (o usuário da transação). Usado por contas, categorias, lançamentos, recorrências, ativos, operações, cotações, logs de consulta, câmbio, dívidas e saldos, orçamentos, metas e aportes, snapshots.
+- Não há linha "global": até o câmbio PTAX é gravado por usuário. Uma linha comum revelaria a outros em que moedas alguém investe, e qualquer sessão poderia alterá-la (achado da revisão de 2026-10-18).
+- `audit_logs.user_id` (quem agiu) também tem o padrão do contexto, e cada usuário só lê o próprio histórico.
+- A política fica na migração `0003`, não no modelo: `owner_only` (`user_id = app_user_id()`) em `USING` e `WITH CHECK`, com `FORCE ROW LEVEL SECURITY` para valer também para o dono das tabelas.
+- Sem usuário no contexto, `app_user_id()` é NULL: nenhuma linha aparece e gravar falha (padrão NULL em coluna NOT NULL).
+
 ## Sinal dos lançamentos
 
 ````python

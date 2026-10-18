@@ -1,7 +1,10 @@
 """Testes rodam contra um PostgreSQL ISOLADO (TEST_DATABASE_URL), nunca contra o banco real.
 
 O nome do banco precisa conter 'test'; o schema é recriado do zero pelas migrações.
-Exemplo: TEST_DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:55432/financeiro_test
+O usuário NÃO pode ser superusuário: superusuários ignoram o Row-Level Security, e os testes de isolamento
+entre usuários passariam mesmo com o isolamento quebrado. Use o dono do banco de teste, sem superpoderes:
+    CREATE ROLE fin_test LOGIN; CREATE DATABASE financeiro_test OWNER fin_test;
+Exemplo: TEST_DATABASE_URL=postgresql+psycopg://fin_test@127.0.0.1:55432/financeiro_test
 """
 
 import os
@@ -26,9 +29,9 @@ os.environ["ALPHAVANTAGE_API_KEY"] = ""
 
 from app import auth  # noqa: E402
 from app.config import get_settings  # noqa: E402
-from app.db import new_session, reset_engine  # noqa: E402
+from app.db import new_session, reset_engine, set_session_user  # noqa: E402
 
-KEEP = {"alembic_version", "categories"}
+KEEP = {"alembic_version"}
 PASSWORD = "senha-de-teste-123"
 
 
@@ -37,15 +40,16 @@ def database():
     get_settings.cache_clear()
     eng = create_engine(TEST_URL)
     with eng.begin() as conn:
+        if conn.scalar(text("SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user")):
+            pytest.exit("TEST_DATABASE_URL usa um superusuário (ou papel com BYPASSRLS), que ignora o RLS. "
+                        "Use um papel comum, dono do banco de teste (ver o topo deste arquivo).", returncode=2)
         conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public"))
     eng.dispose()
     cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
     cfg.attributes["skip_logging"] = True
     command.upgrade(cfg, "head")
     reset_engine()
-    with new_session() as db:
-        seed_max = db.scalar(text("SELECT max(id) FROM categories"))
-    yield seed_max
+    yield
     reset_engine()
 
 
@@ -55,7 +59,6 @@ def clean(database):
         tables = [r[0] for r in db.execute(text(
             "SELECT tablename FROM pg_tables WHERE schemaname='public'")) if r[0] not in KEEP]
         db.execute(text(f"TRUNCATE {', '.join(tables)} RESTART IDENTITY CASCADE"))
-        db.execute(text("DELETE FROM categories WHERE id > :m"), {"m": database})
         db.commit()
     auth._failures.clear()
     yield
@@ -63,7 +66,10 @@ def clean(database):
 
 @pytest.fixture
 def db():
+    """Sessão no contexto do usuário 1 (o primeiro criado em cada teste, "felipe" do fixture client):
+    os testes que consultam o banco diretamente enxergam os dados dele, como a aplicação enxergaria."""
     s = new_session()
+    set_session_user(s, 1)
     yield s
     s.close()
 
