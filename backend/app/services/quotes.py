@@ -66,7 +66,8 @@ def _recent_auto(db: Session, asset_id: int, minutes: int) -> bool:
 
 
 def update_all(db: Session, trigger: str = "auto", asset_ids: list[int] | None = None,
-               client: httpx.Client | None = None, providers=None, fx_provider=None) -> dict:
+               client: httpx.Client | None = None, providers=None, fx_provider=None,
+               on_progress=None) -> dict:
     """Atualiza cotações e câmbio. Retorna um resumo; nunca lança por falha de um ativo."""
     # Conexão dedicada: o Session devolve a conexão ao pool a cada commit, o que perderia o lock de sessão.
     lock_conn = db.get_bind().connect()
@@ -89,6 +90,8 @@ def update_all(db: Session, trigger: str = "auto", asset_ids: list[int] | None =
         cache_minutes = MANUAL_CACHE_MINUTES if trigger == "manual" else max(s.quotes_update_interval_minutes - 1, 1)
         last_call: dict[str, float] = {}
         for asset in db.scalars(q).all():
+            if on_progress:
+                on_progress()
             prov = provider_for(asset, providers)
             if prov is None:
                 summary["unsupported"] += 1

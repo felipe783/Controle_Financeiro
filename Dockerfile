@@ -39,5 +39,5 @@ COPY backend/app ./app
 USER app
 EXPOSE 8000
 # Forma exec: o uvicorn é o PID 1 e recebe SIGTERM diretamente (encerramento gracioso).
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", \
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", \
      "--proxy-headers", "--forwarded-allow-ips", "*", "--no-server-header"]

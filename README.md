@@ -60,7 +60,7 @@ Não há dados de demonstração: tudo o que aparece foi cadastrado por você.
 ## 3. Arquitetura
 
 ```
- navegador ──HTTP──▶ web (Nginx: React compilado + proxy /api) ──▶ api (FastAPI, 2 workers uvicorn)
+ navegador ──HTTP──▶ web (Nginx: React compilado + proxy /api) ──▶ api (FastAPI, uvicorn)
                                                                    │
                          worker (agendador único: cotações,        ▼
                          recorrências, snapshot diário) ─────▶ db (PostgreSQL 17, volume pgdata)
@@ -394,8 +394,8 @@ frente, por exemplo Caddy (`financas.seudominio.com { reverse_proxy 127.0.0.1:80
 `APP_BIND=127.0.0.1` e `COOKIE_SECURE=true`. Depois, descomente o HSTS em `infra/nginx/default.conf`.
 
 **Limitações:**
-- O bloqueio de tentativas de login fica na memória de cada processo da API: reinicia junto com ela e é
-  contado por worker. Para exposição pública, use também o rate limit do proxy ou o fail2ban.
+- O bloqueio de tentativas de login fica na memória do processo da API (um único processo uvicorn) e é
+  zerado quando ela reinicia. Para exposição pública, use também o rate limit do proxy ou o fail2ban.
 - Todas as contas são em BRL. Ativos podem ser em outra moeda, mas o caixa é em reais.
 - A TIR só aparece com 30 dias ou mais de histórico. TWR não é calculada.
 - Não há regras tributárias automáticas: impostos e taxas são os valores informados.

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.auth import current_user
 from app.db import get_db
-from app.models import TX_SIGN, Account, Category, RecurrenceRule, Transaction, User
+from app.models import TX_SIGN, Account, Category, InvestmentOperation, RecurrenceRule, Transaction, User
 from app.schemas import (
     AccountIn,
     AccountOut,
@@ -96,9 +96,10 @@ def update_account(account_id: int, data: AccountIn, db: Session = Depends(get_d
 @router.delete("/accounts/{account_id}", status_code=204)
 def delete_account(account_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
     acc = get_or_404(db, Account, account_id, "Conta")
-    used = db.scalar(select(func.count()).select_from(Transaction).where(Transaction.account_id == acc.id))
+    used = sum(db.scalar(select(func.count()).select_from(m).where(m.account_id == acc.id)) or 0
+               for m in (Transaction, RecurrenceRule, InvestmentOperation))
     if used:
-        raise Conflict("A conta possui lançamentos; arquive-a em vez de excluir.")
+        raise Conflict("A conta possui lançamentos, recorrências ou operações; arquive-a em vez de excluir.")
     audit(db, "account", acc.id, "delete", before=snapshot(acc), user_id=user.id)
     db.delete(acc)
     db.commit()
@@ -318,13 +319,19 @@ def list_recurrences(db: Session = Depends(get_db)):
     return db.scalars(select(RecurrenceRule).order_by(RecurrenceRule.active.desc(), RecurrenceRule.description)).all()
 
 
-@router.post("/recurrences", response_model=RecurrenceOut, status_code=201)
-def create_recurrence(data: RecurrenceIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    get_or_404(db, Account, data.account_id, "Conta")
+def _check_rule(db: Session, data: RecurrenceIn) -> None:
+    acc = get_or_404(db, Account, data.account_id, "Conta")
+    if acc.archived and data.active:
+        raise DomainError(f"A conta '{acc.name}' está arquivada.")
     if data.category_id:
         cat = get_or_404(db, Category, data.category_id, "Categoria")
         if cat.kind != data.kind:
             raise DomainError("A categoria não corresponde ao tipo.")
+
+
+@router.post("/recurrences", response_model=RecurrenceOut, status_code=201)
+def create_recurrence(data: RecurrenceIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    _check_rule(db, data)
     rule = RecurrenceRule(**data.model_dump())
     db.add(rule)
     db.flush()
@@ -340,6 +347,7 @@ def update_recurrence(rule_id: int, data: RecurrenceIn, db: Session = Depends(ge
                       user: User = Depends(current_user)):
     """Alterações valem para ocorrências ainda não geradas; as já geradas são editadas individualmente."""
     rule = get_or_404(db, RecurrenceRule, rule_id, "Recorrência")
+    _check_rule(db, data)
     if data.start_date != rule.start_date and rule.generated_until:
         raise DomainError("Não é possível mudar a data inicial de uma recorrência que já gerou lançamentos; "
                           "encerre-a e crie outra.")

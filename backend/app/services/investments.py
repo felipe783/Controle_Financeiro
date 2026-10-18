@@ -115,19 +115,21 @@ def cash_effect(asset: Asset, op: InvestmentOperation) -> tuple[str, Decimal] | 
     q, p = op.quantity or ZERO, op.unit_price or ZERO
     gross = op.gross_amount or ZERO
     if op.kind == "buy":
-        return "investment_out", money((q * p + op.fees) * fx)
-    if op.kind == "sell":
-        value = money((q * p - op.fees) * fx)
-        if value <= 0:
-            raise DomainError("O valor líquido da venda deve ser positivo (taxas maiores que o valor vendido).")
-        return "investment_in", value
-    if op.kind == "income":
-        return "income", money((gross - op.taxes) * fx)
-    if op.kind == "fee":
-        return "expense", money(gross * fx)
-    if op.kind == "amortization":
-        return "investment_in", money((gross - op.taxes) * fx)
-    return None
+        kind, value = "investment_out", money((q * p + op.fees) * fx)
+    elif op.kind == "sell":
+        kind, value = "investment_in", money((q * p - op.fees) * fx)
+    elif op.kind == "income":
+        kind, value = "income", money((gross - op.taxes) * fx)
+    elif op.kind == "fee":
+        kind, value = "expense", money(gross * fx)
+    elif op.kind == "amortization":
+        kind, value = "investment_in", money((gross - op.taxes) * fx)
+    else:
+        return None
+    if value <= 0:
+        raise DomainError("O valor líquido em caixa da operação deve ser maior que zero "
+                          "(confira preço, taxas e impostos, ou registre sem conta).")
+    return kind, value
 
 
 def compute_position(asset: Asset, ops: list[InvestmentOperation]) -> Position:

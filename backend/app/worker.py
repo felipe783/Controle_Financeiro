@@ -49,7 +49,7 @@ def run_once(last: dict[str, float]) -> None:
             last["daily"] = now
         if s.quotes_auto_update and now - last.get("quotes", -1e9) >= s.quotes_update_interval_minutes * 60:
             try:
-                quotes.update_all(db, trigger="auto")
+                quotes.update_all(db, trigger="auto", on_progress=lambda: heartbeat(db))
             except Conflict:
                 log.info("atualizacao de cotacoes ja em andamento; adiada")
             last["quotes"] = now

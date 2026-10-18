@@ -23,6 +23,8 @@ saldo(conta, data) = saldo_inicial
                    + Σ lançamentos EFETIVADOS com data de efetivação entre a data do saldo inicial e a data
 ```
 
+- O saldo "atual" considera efetivações até **hoje**; um lançamento marcado como efetivado com data futura
+  passa a contar nessa data (coerente com a carteira, que também ignora operações futuras).
 - O saldo **não é armazenado**: é sempre recalculado. Não existe saldo desatualizado nem disputa entre
   operações simultâneas.
 - Lançamentos previstos e pendentes não alteram o saldo; aparecem em "a receber / a pagar" e na previsão.

@@ -37,7 +37,9 @@ if (( ! ASSUME_YES )); then
 fi
 
 info "Backup preventivo do estado atual"
-if "$ROOT/scripts/backup.sh"; then ok "Estado anterior preservado em backups/."
+# Abre o arquivo antes e desliga a retenção: o backup preventivo não pode apagar o backup a restaurar.
+exec 3<"$FILE"
+if BACKUP_RETENTION_DAYS=0 "$ROOT/scripts/backup.sh"; then ok "Estado anterior preservado em backups/."
 else die "Não foi possível criar o backup preventivo; restauração cancelada."; fi
 
 info "Parando a aplicação"
@@ -50,7 +52,7 @@ CREATE DATABASE :"db" OWNER :"owner";
 REVOKE ALL ON DATABASE :"db" FROM PUBLIC;
 SQL
 dc exec -T db psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -c "ALTER SCHEMA public OWNER TO \"$APP_USER\""
-if ! dc exec -T db pg_restore -U postgres -d "$DB" --no-owner --role="$APP_USER" --exit-on-error < "$FILE"; then
+if ! dc exec -T db pg_restore -U postgres -d "$DB" --no-owner --role="$APP_USER" --exit-on-error <&3; then
   die "A restauração falhou. O estado anterior está no backup preventivo mais recente em backups/ (restaure-o com este script)."
 fi
 ok "Dados restaurados."

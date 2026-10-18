@@ -231,6 +231,7 @@ class ImportRow(BaseModel):
     category_name: str | None = None
     account_id: int | None = None
     account_name: str | None = None
+    notes: str | None = None
     errors: list[str] = []
     duplicate: bool = False
     import_hash: str | None = None
@@ -284,11 +285,11 @@ class OperationIn(_Clean):
             raise ValueError("Informe a variação de quantidade do ajuste (positiva ou negativa).")
         if k in ("income", "fee", "amortization") and (self.gross_amount is None or self.gross_amount <= 0):
             raise ValueError("Informe o valor bruto (maior que zero).")
+        if k in ("income", "amortization") and self.taxes > (self.gross_amount or 0):
+            raise ValueError("Os impostos não podem superar o valor bruto.")
         if k == "income":
             self.income_type = self.income_type or "other"
             self.income_status = self.income_status or "received"
-            if self.taxes > (self.gross_amount or 0):
-                raise ValueError("Os impostos não podem superar o valor bruto.")
         else:
             self.income_type = None
             self.income_status = None

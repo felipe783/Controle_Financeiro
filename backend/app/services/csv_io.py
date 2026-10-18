@@ -42,7 +42,7 @@ def row_hash(d: dt.date, amount: Decimal, description: str, account_id: int, kin
 
 def parse_amount(raw: str) -> Decimal:
     s = raw.strip().replace("R$", "").replace(" ", "")
-    if "," in s:  # formato brasileiro: ponto como milhar
+    if "," in s or re.fullmatch(r"\d{1,3}(\.\d{3})+", s):  # formato brasileiro: ponto como milhar
         s = s.replace(".", "").replace(",", ".")
     value = Decimal(s)
     if not value.is_finite():
@@ -83,7 +83,8 @@ def preview(db: Session, content: bytes, default_account_id: int | None = None) 
     for i, raw in enumerate(reader, start=2):
         if i - 1 > MAX_ROWS:
             raise DomainError(f"Arquivo excede o limite de {MAX_ROWS} linhas.")
-        rec = {(k or "").strip().lower(): (v or "").strip() for k, v in raw.items()}
+        # O "'" inicial é o prefixo anti-fórmula da exportação; removê-lo fecha o ciclo exportar/importar.
+        rec = {(k or "").strip().lower(): (v or "").strip().removeprefix("'") for k, v in raw.items()}
         if not any(rec.values()):
             continue
         row = ImportRow(line=i)
@@ -92,6 +93,7 @@ def preview(db: Session, content: bytes, default_account_id: int | None = None) 
         except ValueError:
             row.errors.append("Data inválida.")
         row.description = rec.get("descricao") or None
+        row.notes = rec.get("observacoes") or None
         if not row.description:
             row.errors.append("Descrição vazia.")
         elif len(row.description) > 200:
@@ -156,7 +158,8 @@ def commit(db: Session, content: bytes, default_account_id: int | None, include_
             continue
         tx = Transaction(kind=r.kind, status=r.status, description=r.description, amount=r.amount, date=r.date,
                          settle_date=r.date if r.status == "settled" else None, account_id=r.account_id,
-                         category_id=r.category_id, import_hash=r.import_hash, reconciled=False)
+                         category_id=r.category_id, notes=r.notes, import_hash=r.import_hash,
+                         reconciled=False)
         db.add(tx)
         created += 1
     db.flush()
@@ -178,6 +181,6 @@ def export(rows: list[Transaction]) -> str:
         if t.kind not in KIND_OUT:
             continue
         w.writerow([t.date.strftime("%d/%m/%Y"), _cell(t.description), f"{t.amount:.2f}".replace(".", ","),
-                    KIND_OUT[t.kind], STATUS_OUT[t.status], t.category.name if t.category else "",
+                    KIND_OUT[t.kind], STATUS_OUT[t.status], _cell(t.category.name) if t.category else "",
                     _cell(t.account.name), _cell((t.notes or "").replace("\n", " "))])
     return buf.getvalue()

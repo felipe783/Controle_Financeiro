@@ -56,6 +56,8 @@ def _locked(key: str) -> bool:
 
 def _register_failure(key: str) -> None:
     with _lock:
+        if len(_failures) > 10_000:  # evita crescimento ilimitado com chaves aleatórias
+            _failures.clear()
         _failures.setdefault(key, []).append(dt.datetime.now(dt.timezone.utc))
 
 

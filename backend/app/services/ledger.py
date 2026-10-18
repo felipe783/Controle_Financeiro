@@ -30,20 +30,20 @@ def today() -> dt.date:
 
 # ---------- Saldos ----------
 def balances(db: Session, as_of: dt.date | None = None) -> dict[int, Decimal]:
-    """Saldo efetivado de todas as contas numa data (padrão: tudo até hoje e futuro já efetivado)."""
+    """Saldo efetivado de todas as contas numa data (padrão: hoje; efetivações futuras ainda não contam)."""
+    as_of = as_of or today()
     accounts = db.scalars(select(Account)).all()
     q = (
         select(Transaction.account_id, func.coalesce(func.sum(SIGNED_AMOUNT), 0))
         .join(Account, Account.id == Transaction.account_id)
-        .where(Transaction.status == "settled", Transaction.settle_date >= Account.initial_balance_date)
+        .where(Transaction.status == "settled", Transaction.settle_date >= Account.initial_balance_date,
+               Transaction.settle_date <= as_of)
         .group_by(Transaction.account_id)
     )
-    if as_of is not None:
-        q = q.where(Transaction.settle_date <= as_of)
     movements = dict(db.execute(q).all())
     out: dict[int, Decimal] = {}
     for a in accounts:
-        if as_of is not None and a.initial_balance_date > as_of:
+        if a.initial_balance_date > as_of:
             out[a.id] = ZERO
             continue
         out[a.id] = money(a.initial_balance + Decimal(movements.get(a.id, 0)))
