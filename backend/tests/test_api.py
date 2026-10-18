@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 
 from app.db import new_session, reset_engine
 from app.models import Transaction
+from app.services import networth
 from tests.conftest import PASSWORD, cat_id
 from tests.test_ledger import account, balance, tx
 
@@ -111,7 +112,8 @@ def test_budget_report_and_alert(client, db):
     sub = client.post("/api/categories", json={"name": "Restaurante", "kind": "expense", "parent_id": food}).json()
     assert client.put("/api/budgets", json={"category_id": food, "month": month.isoformat(),
                                             "amount": "1000.00"}).status_code == 200
-    tx(client, acc, "expense", "500.00", date=month.isoformat(), category_id=food)
+    tx(client, acc, "expense", "500.00", date=month.replace(day=15).isoformat(), category_id=food)
+    tx(client, acc, "expense", "9.00", date=(month - dt.timedelta(days=1)).isoformat(), category_id=food)
     tx(client, acc, "expense", "350.00", date=month.isoformat(), category_id=sub["id"])
     tx(client, acc, "expense", "200.00", status="planned", date=month.isoformat(), category_id=food)
     b = client.get("/api/budgets", params={"month": month.isoformat()}).json()[0]
@@ -142,6 +144,16 @@ def test_forecast_and_upcoming(client):
 def test_system_category_protected(client, db):
     pid = cat_id(db, "Proventos", "income")
     assert client.delete(f"/api/categories/{pid}").status_code == 409
+
+
+def test_current_month_covers_whole_month(client):
+    acc = account(client)
+    last = networth.month_end(dt.date.today())
+    tx(client, acc, "income", "100.00", date=last.isoformat())
+    tx(client, acc, "expense", "40.00", date=last.replace(day=15).isoformat())
+    d = client.get("/api/dashboard", params={"period": "month"}).json()
+    assert d["period"]["end"] == last.isoformat()
+    assert Decimal(d["kpis"]["income"]) == 100 and Decimal(d["kpis"]["expense"]) == 40
 
 
 def test_dashboard_periods(client):

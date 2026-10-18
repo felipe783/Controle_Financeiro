@@ -26,6 +26,7 @@ from app.services.common import DomainError, audit, get_or_404, snapshot
 
 LISTED_CLASSES = {"br_stock", "fii", "etf", "international"}
 EPS = Decimal("0.000000005")
+MIN_XIRR_DAYS = 30
 
 
 # ---------- XIRR ----------
@@ -36,14 +37,14 @@ def xirr(flows: list[tuple[dt.date, Decimal]]) -> Decimal | None:
         return None
     t0 = min(d for d, _ in flows)
     span = max((d - t0).days for d, _ in flows)
-    if span < 1:
+    if span < MIN_XIRR_DAYS:  # anualizar poucos dias de histórico produz números enganosos
         return None
     times = [((d - t0).days / 365.0, v) for d, v in flows]
 
     def npv(rate: float) -> float:
         return sum(v / (1.0 + rate) ** t for t, v in times)
 
-    lo, hi = -0.9999, 10.0
+    lo, hi = -0.9999, 1000.0
     f_lo, f_hi = npv(lo), npv(hi)
     if f_lo * f_hi > 0:
         return None

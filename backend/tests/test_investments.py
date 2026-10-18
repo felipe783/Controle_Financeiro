@@ -141,6 +141,9 @@ def test_xirr():
     r = investments.xirr([(dt.date(2025, 1, 1), Decimal(-1000)), (dt.date(2026, 1, 1), Decimal(1100))])
     assert abs(r - Decimal("0.10")) < Decimal("0.0001")
     assert investments.xirr([(dt.date(2025, 1, 1), Decimal(-1000))]) is None
+    assert investments.xirr([(dt.date(2026, 1, 1), Decimal(-1000)), (dt.date(2026, 1, 12), Decimal(1100))]) is None
+    big = investments.xirr([(dt.date(2025, 1, 1), Decimal(-100)), (dt.date(2025, 3, 1), Decimal(300))])
+    assert big is not None and big > 10  # retornos altos também são encontrados
 
 
 def test_foreign_asset_fx_components(client):

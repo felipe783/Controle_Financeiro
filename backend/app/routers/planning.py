@@ -20,7 +20,7 @@ router = APIRouter(dependencies=[Depends(current_user)])
 def period_range(period: str, start: dt.date | None, end: dt.date | None) -> tuple[dt.date, dt.date]:
     today = dt.date.today()
     first = today.replace(day=1)
-    month_end = networth.month_ends(first, first)[0]
+    month_end = networth.month_end(first)
     if period == "custom":
         if not start or not end or start > end:
             raise DomainError("Informe um período personalizado válido.")

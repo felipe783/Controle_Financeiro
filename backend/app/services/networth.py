@@ -8,6 +8,7 @@ Não há dupla contagem: comprar um ativo tira o dinheiro da conta (investment_o
 o caixa da corretora conta só como caixa. Metas não entram (são destinação de valores existentes).
 """
 
+import calendar
 import datetime as dt
 from decimal import Decimal
 
@@ -92,7 +93,12 @@ def take_snapshot(db: Session) -> NetWorthSnapshot:
     return db.scalar(select(NetWorthSnapshot).where(NetWorthSnapshot.snapshot_date == today))
 
 
+def month_end(d: dt.date) -> dt.date:
+    return dt.date(d.year, d.month, calendar.monthrange(d.year, d.month)[1])
+
+
 def month_ends(start: dt.date, end: dt.date) -> list[dt.date]:
+    """Último dia de cada mês entre start e end; o último ponto é limitado a `end`."""
     out, y, m = [], start.year, start.month
     while (y, m) <= (end.year, end.month):
         nxt = dt.date(y + (m == 12), m % 12 + 1, 1)

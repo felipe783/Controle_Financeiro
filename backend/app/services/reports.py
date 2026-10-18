@@ -124,7 +124,7 @@ def dashboard(db: Session, start: dt.date, end: dt.date) -> dict:
 # ---------- Orçamentos ----------
 def budget_report(db: Session, month: dt.date) -> list[dict]:
     month = month.replace(day=1)
-    end = networth.month_ends(month, month)[0]
+    end = networth.month_end(month)
     threshold = Decimal(get_settings().budget_alert_percent) / 100
     out = []
     for b in db.scalars(select(Budget).where(Budget.month == month)).all():
