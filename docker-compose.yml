@@ -1,0 +1,128 @@
+# Requer Docker Engine 24+ e Docker Compose v2.20+ (plugin "docker compose").
+# Somente o serviço `web` publica porta no host. Banco e API ficam em redes internas.
+name: financeiro
+
+x-backend: &backend
+  build:
+    context: .
+    target: api
+  image: financeiro-api:local
+  # Lista explícita (sem env_file): a senha de superusuário do banco nunca chega à aplicação.
+  environment:
+    APP_ENV: ${APP_ENV:-production}
+    APP_TIMEZONE: ${APP_TIMEZONE:-America/Sao_Paulo}
+    TZ: ${APP_TIMEZONE:-America/Sao_Paulo}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    POSTGRES_HOST: db
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: ${POSTGRES_DB:-financeiro}
+    POSTGRES_USER: ${POSTGRES_USER:-financeiro_app}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+    CORS_ORIGINS: ${CORS_ORIGINS:-}
+    COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    SESSION_HOURS: ${SESSION_HOURS:-12}
+    QUOTES_AUTO_UPDATE: ${QUOTES_AUTO_UPDATE:-true}
+    QUOTES_UPDATE_INTERVAL_MINUTES: ${QUOTES_UPDATE_INTERVAL_MINUTES:-60}
+    QUOTES_REQUEST_TIMEOUT_SECONDS: ${QUOTES_REQUEST_TIMEOUT_SECONDS:-15}
+    QUOTES_MAX_RETRIES: ${QUOTES_MAX_RETRIES:-2}
+    QUOTES_MIN_SECONDS_BETWEEN_REQUESTS: ${QUOTES_MIN_SECONDS_BETWEEN_REQUESTS:-1}
+    QUOTES_STALE_DAYS_LISTED: ${QUOTES_STALE_DAYS_LISTED:-4}
+    QUOTES_STALE_DAYS_OTHER: ${QUOTES_STALE_DAYS_OTHER:-35}
+    BRAPI_TOKEN: ${BRAPI_TOKEN:-}
+    ALPHAVANTAGE_API_KEY: ${ALPHAVANTAGE_API_KEY:-}
+    ALPHAVANTAGE_DAILY_LIMIT: ${ALPHAVANTAGE_DAILY_LIMIT:-25}
+    FX_BCB_ENABLED: ${FX_BCB_ENABLED:-true}
+    BUDGET_ALERT_PERCENT: ${BUDGET_ALERT_PERCENT:-80}
+  networks: [internal, egress]   # egress: consulta aos provedores de cotação
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  logging: &logging
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  db:
+    image: postgres:17.9-alpine3.23
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-financeiro}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?defina POSTGRES_SUPERUSER_PASSWORD no .env}
+      APP_DB_USER: ${POSTGRES_USER:-financeiro_app}
+      APP_DB_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      TZ: ${APP_TIMEZONE:-America/Sao_Paulo}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init-app-user.sh:/docker-entrypoint-initdb.d/10-init-app-user.sh:ro
+    networks: [internal]
+    # Sem "ports": o PostgreSQL não é acessível de fora do Docker.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging: *logging
+
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    networks: [internal]
+    restart: "no"
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    <<: *backend
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status == 200 else 1)"]
+      interval: 15s
+      timeout: 6s
+      retries: 5
+      start_period: 20s
+    stop_grace_period: 20s
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.worker"]
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.cli", "worker-health"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 90s
+    stop_grace_period: 20s
+
+  web:
+    build:
+      context: .
+      target: web
+    image: financeiro-web:local
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      # APP_BIND=127.0.0.1 restringe o acesso à própria máquina.
+      - "${APP_BIND:-0.0.0.0}:${APP_PORT:-8080}:8080"
+    networks: [internal, egress]
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+
+networks:
+  internal:
+    internal: true   # banco: sem rota para fora do Docker
+  egress: {}
+
+volumes:
+  pgdata:

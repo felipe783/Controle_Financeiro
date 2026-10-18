@@ -4,8 +4,10 @@
   reset-password usuario   troca a senha e encerra as sessões
   check-db                 verifica conexão e versão das migrações (sai 1 se houver problema)
   status                   resumo operacional sem dados sensíveis
+  worker-health            sai 0 se o worker registrou batimento nos últimos 5 minutos
 """
 
+import datetime as dt
 import getpass
 import json
 import sys
@@ -39,6 +41,13 @@ def main(argv: list[str]) -> int:
             elif cmd == "check-db":
                 version = db.scalar(text("SELECT version_num FROM alembic_version"))
                 print(f"Banco OK; migração atual: {version}")
+            elif cmd == "worker-health":
+                beat = db.get(SystemStatus, "worker_heartbeat")
+                age = (dt.datetime.now(dt.timezone.utc) - beat.updated_at).total_seconds() if beat else None
+                if age is None or age > 300:
+                    print("Worker sem batimento recente.", file=sys.stderr)
+                    return 1
+                print(f"Worker ativo (último batimento há {int(age)} s).")
             elif cmd == "status":
                 last = db.get(SystemStatus, "quotes_last_run")
                 beat = db.get(SystemStatus, "worker_heartbeat")
