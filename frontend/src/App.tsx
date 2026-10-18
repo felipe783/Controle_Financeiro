@@ -102,10 +102,12 @@ export default function App() {
   // Zera a query "me" que este componente observa (qc.clear() a descartaria sem re-renderizar a tela)
   // e apaga os dados financeiros em cache, para nada do usuário anterior continuar visível.
   function endSession() {
+    // Sem sessão anterior (ex.: abrir /lancamentos já deslogado), mantém a URL para voltar a ela após entrar.
+    const hadSession = !!qc.getQueryData(["me"]);
     qc.setQueryData(["me"], null);
     qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
     setMenuOpen(false);
-    navigate("/", { replace: true });
+    if (hadSession) navigate("/", { replace: true });
   }
 
   useEffect(() => {

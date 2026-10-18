@@ -115,3 +115,62 @@ def test_migration_promotes_existing_users_to_admin():
             assert db.scalar(text("SELECT is_admin FROM users WHERE username = 'antigo'")) is True
     finally:
         command.upgrade(cfg, "head")
+
+
+def test_lockout_cannot_be_bypassed_with_spaces_or_case(anon, db):
+    auth.create_user(db, "user1", PASSWORD)
+    for _ in range(5):
+        assert anon.post("/api/auth/login", json={"username": "user1", "password": "errada"}).status_code == 401
+    for variant in (" user1", "USER1 ", "\tuser1"):
+        r = anon.post("/api/auth/login", json={"username": variant, "password": PASSWORD})
+        assert r.status_code == 429, variant
+
+
+def test_reset_password_ignores_case(db):
+    auth.create_user(db, "Maria", OTHER)
+    auth.set_password(db, "maria", "nova-senha-forte-789")
+    assert login("MARIA", "nova-senha-forte-789").get("/api/auth/me").status_code == 200
+
+
+def test_concurrent_demotion_keeps_one_admin(client, db):
+    """Felipe rebaixa Bruno (transação ainda aberta) enquanto Bruno tenta rebaixar Felipe: o sistema
+    não pode terminar sem administrador. Determinístico: a transação paralela segura a linha de Bruno."""
+    import threading
+    import time
+
+    from app.db import get_engine
+
+    client.post("/api/users", json={"username": "bruno", "password": OTHER, "is_admin": True})
+    bruno = login("bruno", OTHER)
+    felipe_id = client.get("/api/auth/me").json()["id"]
+    result = {}
+    with get_engine().connect() as other:
+        other.execute(text("UPDATE users SET is_admin = false WHERE username = 'bruno'"))  # sem commit ainda
+        t = threading.Thread(target=lambda: result.update(status=bruno.put(
+            f"/api/users/{felipe_id}", json={"is_admin": False, "is_active": True}).status_code))
+        t.start()
+        time.sleep(1.0)  # a requisição de Bruno passa pela autorização e fica esperando a trava
+        other.commit()
+        t.join(10)
+    assert result["status"] == 409
+    with new_session() as s:
+        assert s.scalar(text("SELECT count(*) FROM users WHERE is_admin AND is_active")) == 1
+
+
+def test_migration_refuses_case_duplicates():
+    import pytest
+
+    cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
+    cfg.attributes["skip_logging"] = True
+    command.downgrade(cfg, "0001")
+    try:
+        with new_session() as db:
+            db.execute(text("INSERT INTO users (username, password_hash, is_active) VALUES ('Ana','x',true), ('ana','x',true)"))
+            db.commit()
+        with pytest.raises(RuntimeError, match="Ana, ana|ana, Ana"):
+            command.upgrade(cfg, "head")
+    finally:
+        with new_session() as db:
+            db.execute(text("DELETE FROM users"))
+            db.commit()
+        command.upgrade(cfg, "head")

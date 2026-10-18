@@ -82,7 +82,7 @@ export default function NetWorth() {
                 <td className={td}>{date(l.reference_date)}</td>
                 <td className={`${td} text-right`}>
                   <Button variant="ghost" onClick={() => setBalanceFor(l)}>Atualizar saldo</Button>
-                  <Button variant="ghost" className="text-red-700" onClick={() => setDelLia(l)}>Excluir</Button></td></tr>))}
+                  <Button variant="danger-ghost" onClick={() => setDelLia(l)}>Excluir</Button></td></tr>))}
             </tbody>
           </Table>
         )}

@@ -98,7 +98,7 @@ function Budgets() {
               <span className="font-medium">{b.category_name} <Badge tone={tone[b.status]}>{label[b.status]}</Badge></span>
               <span className="tabular-nums">{brl(b.spent)} de {brl(b.amount)} ({pct(b.percent)})
                 {toNum(b.committed) > 0 && <span className="text-slate-600 dark:text-slate-400"> · {brl(b.committed)} previstos</span>}
-                <Button variant="ghost" className="text-red-700" onClick={() => del.mutate(b.id)}>Remover</Button></span>
+                <Button variant="danger-ghost" onClick={() => del.mutate(b.id)}>Remover</Button></span>
             </div>
             <div className="mt-1 h-2 overflow-hidden rounded bg-slate-200 dark:bg-slate-700" role="progressbar"
               aria-valuenow={Math.round(toNum(b.percent) * 100)} aria-valuemin={0} aria-valuemax={100}
@@ -136,7 +136,7 @@ function Goals() {
             <div className="mt-2 flex gap-1">
               <Button variant="secondary" onClick={() => setContrib(g)}>Aportar / retirar</Button>
               <Button variant="ghost" onClick={() => setEdit(g)}>Editar</Button>
-              <Button variant="ghost" className="text-red-700" onClick={() => setDel(g)}>Excluir</Button>
+              <Button variant="danger-ghost" onClick={() => setDel(g)}>Excluir</Button>
             </div>
           </div>))}</div>
       )}
@@ -200,7 +200,7 @@ function ContributionForm({ goal, onDone }: { goal: GoalRow; onDone: () => void 
       <div className="text-sm">{hist.data?.map((h) => (
         <div key={h.id} className="flex items-center justify-between border-b border-slate-100 py-1 dark:border-slate-800">
           <span>{date(h.date)}</span><span className="tabular-nums">{brl(h.amount)}
-            <Button variant="ghost" className="text-red-700" onClick={() => remove.mutate(h.id)}>Remover</Button></span></div>))}</div>
+            <Button variant="danger-ghost" onClick={() => remove.mutate(h.id)}>Remover</Button></span></div>))}</div>
     </form>
   );
 }
@@ -230,7 +230,7 @@ function Recurrences() {
               <td className={td}>{date(r.start_date)} → {r.end_date ? date(r.end_date) : "sem fim"}</td>
               <td className={`${td} whitespace-nowrap text-right`}>{r.active && <>
                 <Button variant="ghost" onClick={() => setEdit(r)}>Editar</Button>
-                <Button variant="ghost" className="text-red-700" onClick={() => setStop(r)}>Encerrar</Button></>}</td>
+                <Button variant="danger-ghost" onClick={() => setStop(r)}>Encerrar</Button></>}</td>
             </tr>))}</tbody>
         </Table>
       )}

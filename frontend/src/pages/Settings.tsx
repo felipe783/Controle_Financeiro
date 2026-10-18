@@ -55,7 +55,7 @@ export default function Settings() {
               <td className={td}>{c.archived ? "Arquivada" : "Ativa"}</td>
               <td className={`${td} text-right`}>{!c.is_system && <>
                 <Button variant="ghost" onClick={() => toggle.mutate(c)}>{c.archived ? "Reativar" : "Arquivar"}</Button>
-                <Button variant="ghost" className="text-red-700" onClick={() => setDel(c)}>Excluir</Button></>}</td>
+                <Button variant="danger-ghost" onClick={() => setDel(c)}>Excluir</Button></>}</td>
             </tr>))}</tbody>
         </Table>
       </Card>

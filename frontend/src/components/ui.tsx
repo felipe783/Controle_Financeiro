@@ -11,7 +11,7 @@ export const inputCls =
   "dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400 " +
   "dark:hover:border-slate-500 dark:disabled:bg-slate-900";
 
-type BtnVariant = "primary" | "secondary" | "danger" | "ghost";
+type BtnVariant = "primary" | "secondary" | "danger" | "ghost" | "danger-ghost";
 const btn: Record<BtnVariant, string> = {
   primary: "bg-emerald-700 text-white hover:bg-emerald-800 active:bg-emerald-900",
   secondary:
@@ -19,6 +19,8 @@ const btn: Record<BtnVariant, string> = {
     "dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700",
   danger: "bg-red-700 text-white hover:bg-red-800 active:bg-red-900",
   ghost: "text-slate-700 hover:bg-slate-200/60 active:bg-slate-200 dark:text-slate-200 dark:hover:bg-slate-800",
+  // Ação destrutiva discreta (Excluir, Desativar): cor de alerta sem disputar com classes de outra variante.
+  "danger-ghost": "text-red-700 hover:bg-red-50 active:bg-red-100 dark:text-red-400 dark:hover:bg-red-950",
 };
 
 // Anel de foco único em todo o app (visível no claro e no escuro, só para teclado).

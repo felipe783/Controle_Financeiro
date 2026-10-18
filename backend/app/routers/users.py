@@ -1,7 +1,7 @@
 """Gestão de usuários: exclusiva de administradores (verificado aqui, não só na interface)."""
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app import auth
@@ -21,7 +21,7 @@ def list_users(db: Session = Depends(get_db)):
 @router.post("/users", response_model=UserAdminOut, status_code=201)
 def create_user(data: UserCreateIn, db: Session = Depends(get_db), admin: User = Depends(auth.require_admin)):
     try:
-        user = auth.create_user(db, data.username, data.password, is_admin=data.is_admin)
+        user = auth.create_user(db, data.username, data.password, is_admin=data.is_admin, commit=False)
     except auth.DuplicateUser as exc:
         raise Conflict(str(exc)) from exc
     except ValueError as exc:
@@ -40,9 +40,11 @@ def update_user(user_id: int, data: UserUpdateIn, db: Session = Depends(get_db),
         raise Conflict("Você não pode remover o próprio acesso de administrador nem desativar a própria conta.")
     losing_admin = user.is_admin and user.is_active and not (data.is_admin and data.is_active)
     if losing_admin:
-        admins = db.scalar(select(func.count()).select_from(User).where(User.is_admin.is_(True),
-                                                                        User.is_active.is_(True)))
-        if admins <= 1:
+        # FOR UPDATE: uma segunda alteração concorrente espera, recontagem vê o resultado da primeira.
+        admins = db.scalars(select(User.id).where(User.is_admin.is_(True), User.is_active.is_(True))
+                            .with_for_update()).all()
+        db.refresh(user)
+        if len(admins) <= 1 or not (user.is_admin and user.is_active):
             raise Conflict("O sistema precisa de pelo menos um administrador ativo.")
     before = {"is_admin": user.is_admin, "is_active": user.is_active}
     user.is_admin, user.is_active = data.is_admin, data.is_active

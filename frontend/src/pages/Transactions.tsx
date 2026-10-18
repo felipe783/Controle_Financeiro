@@ -150,7 +150,7 @@ export default function Transactions() {
                         {editable && <Button variant="ghost" onClick={() => dup.mutate(t)}>Duplicar</Button>}
                         {t.transfer_id && <Button variant="ghost" onClick={() => setTransfer({ id: t.transfer_id })}>Editar</Button>}
                         {!t.investment_operation_id && (
-                          <Button variant="ghost" className="text-red-700" onClick={() => setToDelete(t)}>Excluir</Button>)}
+                          <Button variant="danger-ghost" onClick={() => setToDelete(t)}>Excluir</Button>)}
                       </td>
                     </tr>
                   );
@@ -238,7 +238,7 @@ function ImportModal({ open, onClose }: { open: boolean; onClose: () => void }) 
                   <td className={td}>{r.line}</td><td className={td}>{date(r.date)}</td>
                   <td className={td}>{r.description}</td><td className={td}>{brl(r.amount)}</td>
                   <td className={td}>{r.kind ? KIND_LABEL[r.kind] : "—"}</td><td className={td}>{r.account_name ?? "—"}</td>
-                  <td className={td}>{r.errors.length ? <span className="text-red-700">{r.errors.join(" ")}</span>
+                  <td className={td}>{r.errors.length ? <span className="text-red-700 dark:text-red-400">{r.errors.join(" ")}</span>
                     : r.duplicate ? <Badge tone="amber">Possível duplicado</Badge> : <Badge tone="green">OK</Badge>}</td>
                 </tr>))}</tbody>
             </Table>

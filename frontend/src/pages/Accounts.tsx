@@ -38,7 +38,7 @@ export default function Accounts() {
                 <td className={`${td} whitespace-nowrap text-right`}>
                   {!a.archived && <Button variant="ghost" onClick={() => setReconcile(a)}>Conciliar</Button>}
                   <Button variant="ghost" onClick={() => setEdit(a)}>Editar</Button>
-                  <Button variant="ghost" className="text-red-700" onClick={() => setToDelete(a)}>Excluir</Button>
+                  <Button variant="danger-ghost" onClick={() => setToDelete(a)}>Excluir</Button>
                 </td>
               </tr>))}</tbody>
           </Table>

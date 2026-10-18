@@ -252,7 +252,7 @@ function AssetDetail({ id, onEdit, onClose }: { id: number; onEdit: (a: AssetRow
                 <td className={td}>{accName(o.account_id)}</td>
                 <td className={`${td} whitespace-nowrap text-right`}>
                   <Button variant="ghost" onClick={() => setOp(o)}>Editar</Button>
-                  <Button variant="ghost" className="text-red-700" onClick={() => setDelOp(o)}>Excluir</Button></td></tr>))}
+                  <Button variant="danger-ghost" onClick={() => setDelOp(o)}>Excluir</Button></td></tr>))}
             </tbody>
           </Table>
         )}
@@ -276,7 +276,7 @@ function AssetDetail({ id, onEdit, onClose }: { id: number; onEdit: (a: AssetRow
                 <td className={`${td} text-right tabular-nums`}>{money(q.total_value, q.currency)}</td>
                 <td className={td}>{dateTime(q.received_at)}</td>
                 <td className={td}>{[q.origin_info, q.note].filter(Boolean).join(" · ") || "—"}</td>
-                <td className={td}>{q.source === "manual" && <Button variant="ghost" className="text-red-700"
+                <td className={td}>{q.source === "manual" && <Button variant="danger-ghost"
                   onClick={() => removeQuote.mutate(q.id)}>Remover</Button>}</td></tr>))}
             </tbody></Table></div>
         )}

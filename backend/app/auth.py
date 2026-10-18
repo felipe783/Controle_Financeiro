@@ -64,10 +64,12 @@ def _register_failure(key: str) -> None:
 
 
 def login(db: Session, request: Request, response: Response, username: str, password: str) -> User:
-    key = f"{username.lower()}|{request.client.host if request.client else '-'}"
+    # Normaliza uma vez: " Felipe" e "felipe" são o mesmo usuário e dividem o mesmo limite de tentativas.
+    username = username.strip().lower()
+    key = f"{username}|{request.client.host if request.client else '-'}"
     if _locked(key):
         raise HTTPException(429, "Muitas tentativas. Aguarde alguns minutos e tente novamente.")
-    user = db.scalar(select(User).where(func.lower(User.username) == username.strip().lower()))
+    user = db.scalar(select(User).where(func.lower(User.username) == username))
     try:
         ok = _ph.verify(user.password_hash if user else _DUMMY_HASH, password) and user is not None
     except (VerificationError, InvalidHashError):
@@ -123,7 +125,7 @@ def require_admin(user: User = Depends(current_user)) -> User:
     return user
 
 
-def create_user(db: Session, username: str, password: str, is_admin: bool = False) -> User:
+def create_user(db: Session, username: str, password: str, is_admin: bool = False, commit: bool = True) -> User:
     username = username.strip()
     if not USERNAME_RE.fullmatch(username):
         raise ValueError("Nome de usuário inválido: use de 3 a 64 letras, números, ponto, hífen ou sublinhado.")
@@ -133,7 +135,7 @@ def create_user(db: Session, username: str, password: str, is_admin: bool = Fals
     user = User(username=username, password_hash=hash_password(password), is_active=True, is_admin=is_admin)
     db.add(user)
     try:
-        db.commit()
+        db.commit() if commit else db.flush()
     except IntegrityError as exc:  # cadastro simultâneo com o mesmo nome
         db.rollback()
         raise DuplicateUser("Já existe um usuário com esse nome.") from exc
@@ -141,7 +143,7 @@ def create_user(db: Session, username: str, password: str, is_admin: bool = Fals
 
 
 def set_password(db: Session, username: str, password: str) -> None:
-    user = db.scalar(select(User).where(User.username == username))
+    user = db.scalar(select(User).where(func.lower(User.username) == username.strip().lower()))
     if user is None:
         raise ValueError("Usuário não encontrado.")
     validate_new_password(password, username)

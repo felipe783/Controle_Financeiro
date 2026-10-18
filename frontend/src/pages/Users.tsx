@@ -44,7 +44,7 @@ export default function Users({ me }: { me: Me }) {
                     <Button variant="ghost" onClick={() => setPending({ user: u, label: u.is_admin ? "Remover administrador" : "Tornar administrador",
                       change: { is_admin: !u.is_admin, is_active: u.is_active } })}>
                       {u.is_admin ? "Remover admin" : "Tornar admin"}</Button>
-                    <Button variant="ghost" className={u.is_active ? "text-red-700 dark:text-red-400" : ""}
+                    <Button variant={u.is_active ? "danger-ghost" : "ghost"}
                       onClick={() => setPending({ user: u, label: u.is_active ? "Desativar" : "Reativar",
                         change: { is_admin: u.is_admin, is_active: !u.is_active } })}>
                       {u.is_active ? "Desativar" : "Reativar"}</Button></>}</td>
@@ -59,7 +59,7 @@ export default function Users({ me }: { me: Me }) {
         onConfirm={() => pending && update.mutate(pending)}
         message={pending && !pending.change.is_active
           ? "O usuário não poderá mais entrar e as sessões abertas serão encerradas imediatamente."
-          : "A alteração vale a partir do próximo acesso do usuário."} />
+          : "A alteração vale imediatamente, já na próxima ação do usuário."} />
     </div>
   );
 }

@@ -5,7 +5,8 @@ export class ApiError extends Error {
 }
 
 async function handle<T>(res: Response): Promise<T> {
-  if (res.status === 401) window.dispatchEvent(new Event("auth:expired"));
+  // Senha errada no login também é 401, mas não é sessão expirada.
+  if (res.status === 401 && !res.url.endsWith("/api/auth/login")) window.dispatchEvent(new Event("auth:expired"));
   if (!res.ok) {
     let msg = `Erro ${res.status}`;
     try {
