@@ -20,6 +20,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -76,10 +77,14 @@ class TimestampMixin:
 
 class User(TimestampMixin, Base):
     __tablename__ = "users"
+    # "Felipe" e "felipe" seriam o mesmo usuário para quem digita; o banco garante isso.
+    __table_args__ = (Index("uq_users_username_lower", text("lower(username)"), unique=True),)
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(64), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Administrador gerencia usuários; os dados financeiros são compartilhados por todos (uso familiar).
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
 
 
 class UserSession(Base):

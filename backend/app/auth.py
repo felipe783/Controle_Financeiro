@@ -9,13 +9,15 @@
 
 import datetime as dt
 import hashlib
+import re
 import secrets
 import threading
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Depends, HTTPException, Request, Response
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -65,7 +67,7 @@ def login(db: Session, request: Request, response: Response, username: str, pass
     key = f"{username.lower()}|{request.client.host if request.client else '-'}"
     if _locked(key):
         raise HTTPException(429, "Muitas tentativas. Aguarde alguns minutos e tente novamente.")
-    user = db.scalar(select(User).where(User.username == username))
+    user = db.scalar(select(User).where(func.lower(User.username) == username.strip().lower()))
     try:
         ok = _ph.verify(user.password_hash if user else _DUMMY_HASH, password) and user is not None
     except (VerificationError, InvalidHashError):
@@ -93,7 +95,8 @@ def logout(db: Session, request: Request, response: Response) -> None:
     if token:
         db.execute(delete(UserSession).where(UserSession.token_hash == _token_hash(token)))
         db.commit()
-    response.delete_cookie(COOKIE, path="/api")
+    # Mesmos atributos do set_cookie: alguns navegadores ignoram a remoção de um cookie Secure sem eles.
+    response.delete_cookie(COOKIE, path="/api", httponly=True, samesite="strict", secure=get_settings().cookie_secure)
 
 
 def current_user(request: Request, db: Session = Depends(get_db)) -> User:
@@ -106,16 +109,34 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return sess.user
 
 
-def create_user(db: Session, username: str, password: str) -> User:
+USERNAME_RE = re.compile(r"^[A-Za-z0-9._-]{3,64}$")
+
+
+class DuplicateUser(ValueError):
+    pass
+
+
+def require_admin(user: User = Depends(current_user)) -> User:
+    """Permissão verificada no servidor: esconder o menu no frontend não basta."""
+    if not user.is_admin:
+        raise HTTPException(403, "Apenas administradores podem gerenciar usuários.")
+    return user
+
+
+def create_user(db: Session, username: str, password: str, is_admin: bool = False) -> User:
     username = username.strip()
-    if not username or len(username) > 64:
-        raise ValueError("Nome de usuário inválido.")
+    if not USERNAME_RE.fullmatch(username):
+        raise ValueError("Nome de usuário inválido: use de 3 a 64 letras, números, ponto, hífen ou sublinhado.")
     validate_new_password(password, username)
-    if db.scalar(select(User).where(User.username == username)):
-        raise ValueError("Usuário já existe.")
-    user = User(username=username, password_hash=hash_password(password), is_active=True)
+    if db.scalar(select(User).where(func.lower(User.username) == username.lower())):
+        raise DuplicateUser("Já existe um usuário com esse nome.")
+    user = User(username=username, password_hash=hash_password(password), is_active=True, is_admin=is_admin)
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:  # cadastro simultâneo com o mesmo nome
+        db.rollback()
+        raise DuplicateUser("Já existe um usuário com esse nome.") from exc
     return user
 
 

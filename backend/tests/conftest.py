@@ -78,7 +78,7 @@ def anon():
 
 @pytest.fixture
 def client(anon, db):
-    auth.create_user(db, "felipe", PASSWORD)
+    auth.create_user(db, "felipe", PASSWORD, is_admin=True)
     r = anon.post("/api/auth/login", json={"username": "felipe", "password": PASSWORD})
     assert r.status_code == 200, r.text
     return anon

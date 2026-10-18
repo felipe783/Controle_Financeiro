@@ -130,3 +130,14 @@ export interface QuoteRow {
   origin_info: string | null;
   note: string | null;
 }
+
+export interface Me {
+  id: number;
+  username: string;
+  is_admin: boolean;
+}
+
+export interface UserRow extends Me {
+  is_active: boolean;
+  created_at: string;
+}

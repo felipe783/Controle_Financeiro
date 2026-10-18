@@ -33,7 +33,7 @@ def main(argv: list[str]) -> int:
         try:
             if cmd == "create-admin":
                 username = argv[1] if len(argv) > 1 else input("Usuário: ").strip()
-                auth.create_user(db, username, _ask_password())
+                auth.create_user(db, username, _ask_password(), is_admin=True)
                 print(f"Usuário '{username}' criado.")
             elif cmd == "reset-password" and len(argv) > 1:
                 auth.set_password(db, argv[1], _ask_password())

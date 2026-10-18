@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
-import { api } from "./api";
-import { Button, ErrorBox, Field, inputCls, Loading } from "./components/ui";
+import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { api, ApiError } from "./api";
+import { Button, ErrorBox, Field, inputCls, Loading, useToast } from "./components/ui";
 import Accounts from "./pages/Accounts";
 import Dashboard from "./pages/Dashboard";
 import Investments from "./pages/Investments";
@@ -10,6 +10,8 @@ import NetWorth from "./pages/NetWorth";
 import Planning from "./pages/Planning";
 import Settings from "./pages/Settings";
 import Transactions from "./pages/Transactions";
+import Users from "./pages/Users";
+import type { Me } from "./types";
 
 const NAV = [
   ["/", "Painel"],
@@ -85,22 +87,43 @@ function ThemeToggle() {
 
 export default function App() {
   const qc = useQueryClient();
-  const me = useQuery({ queryKey: ["me"], queryFn: () => api.get<{ username: string }>("/auth/me"), retry: false });
+  const navigate = useNavigate();
+  const notify = useToast();
+  const me = useQuery({ queryKey: ["me"], queryFn: () => api.get<Me>("/auth/me"), retry: false });
   const [menuOpen, setMenuOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
+  // Zera a query "me" que este componente observa (qc.clear() a descartaria sem re-renderizar a tela)
+  // e apaga os dados financeiros em cache, para nada do usuário anterior continuar visível.
+  function endSession() {
+    qc.setQueryData(["me"], null);
+    qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
+    setMenuOpen(false);
+    navigate("/", { replace: true });
+  }
 
   useEffect(() => {
-    const expired = () => qc.setQueryData(["me"], null);
-    window.addEventListener("auth:expired", expired);
-    return () => window.removeEventListener("auth:expired", expired);
-  }, [qc]);
+    window.addEventListener("auth:expired", endSession);
+    return () => window.removeEventListener("auth:expired", endSession);
+  });
 
   if (me.isLoading) return <Loading />;
-  if (!me.data) return <Login onDone={() => { qc.clear(); me.refetch(); }} />;
+  if (!me.data) return <Login onDone={() => { qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" }); me.refetch(); }} />;
 
   async function logout() {
-    await api.post("/auth/logout").catch(() => undefined);
-    qc.clear();
-    qc.setQueryData(["me"], null);
+    setLeaving(true);
+    try {
+      await api.post("/auth/logout");
+    } catch (err) {
+      // 401 = a sessão já tinha expirado; qualquer outra falha deixa a sessão aberta no servidor.
+      if (!(err instanceof ApiError && err.status === 401)) {
+        setLeaving(false);
+        notify(`Não foi possível sair: ${err instanceof Error ? err.message : "erro desconhecido"}`, "error");
+        return;
+      }
+    }
+    setLeaving(false);
+    endSession();
   }
 
   return (
@@ -118,7 +141,7 @@ export default function App() {
           dark:border-slate-800 dark:bg-slate-900 md:sticky md:top-0 md:block md:h-screen md:w-56`}>
         <div className="mb-4 hidden px-2 text-lg font-semibold md:block">Financeiro</div>
         <ul className="space-y-1">
-          {NAV.map(([to, label]) => (
+          {[...NAV, ...(me.data.is_admin ? [["/usuarios", "Usuários"] as const] : [])].map(([to, label]) => (
             <li key={to}>
               <NavLink to={to} end={to === "/"} onClick={() => setMenuOpen(false)}
                 className={({ isActive }) => `block rounded-md px-3 py-2 text-sm font-medium ${isActive
@@ -131,7 +154,8 @@ export default function App() {
         </ul>
         <div className="mt-6 space-y-1 border-t border-slate-200 pt-3 dark:border-slate-800">
           <ThemeToggle />
-          <Button variant="ghost" onClick={logout} className="w-full justify-start">Sair ({me.data.username})</Button>
+          <Button variant="ghost" onClick={logout} disabled={leaving} className="w-full justify-start">
+            {leaving ? "Saindo…" : `Sair (${me.data.username})`}</Button>
         </div>
       </nav>
       <main id="conteudo" className="min-w-0 flex-1 p-4 md:p-6">
@@ -143,6 +167,7 @@ export default function App() {
           <Route path="/patrimonio" element={<NetWorth />} />
           <Route path="/planejamento" element={<Planning />} />
           <Route path="/cadastros" element={<Settings />} />
+          <Route path="/usuarios" element={me.data.is_admin ? <Users me={me.data} /> : <Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

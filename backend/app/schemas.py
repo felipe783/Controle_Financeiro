@@ -44,6 +44,23 @@ class LoginIn(BaseModel):
 class UserOut(Out):
     id: int
     username: str
+    is_admin: bool
+
+
+class UserCreateIn(BaseModel):
+    username: Annotated[str, Field(min_length=3, max_length=64, pattern=r"^\s*[A-Za-z0-9._-]+\s*$")]
+    password: Annotated[str, Field(min_length=12, max_length=256)]
+    is_admin: bool = False
+
+
+class UserUpdateIn(BaseModel):
+    is_admin: bool
+    is_active: bool
+
+
+class UserAdminOut(UserOut):
+    is_active: bool
+    created_at: dt.datetime
 
 
 # ---------- Contas ----------

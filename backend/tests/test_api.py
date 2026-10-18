@@ -94,7 +94,9 @@ def test_password_stored_hashed(db):
 
 def test_health_checks_database_and_migrations(anon):
     r = anon.get("/api/health")
-    assert r.status_code == 200 and r.json()["database"] == "ok" and r.json()["migration"] == "0001"
+    from app.main import migration_head
+
+    assert r.status_code == 200 and r.json()["database"] == "ok" and r.json()["migration"] == migration_head()
 
 
 def test_data_persists_after_restart(client):

@@ -14,7 +14,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.logging_setup import configure_logging
 from app.models import User
-from app.routers import finance, invest, planning
+from app.routers import finance, invest, planning, users
 from app.schemas import LoginIn, UserOut
 from app.services.common import DomainError
 
@@ -101,3 +101,4 @@ def me(user: User = Depends(auth.current_user)):
 app.include_router(finance.router, prefix="/api")
 app.include_router(invest.router, prefix="/api")
 app.include_router(planning.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
