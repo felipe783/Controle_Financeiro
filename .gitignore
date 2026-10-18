@@ -1,0 +1,19 @@
+# Segredos e configuração local
+.env
+.env.*
+!.env.example
+
+# Dados e backups (nunca versionar dados financeiros)
+backups/*
+!backups/.gitkeep
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node
+node_modules/
+frontend/dist/
+*.log
