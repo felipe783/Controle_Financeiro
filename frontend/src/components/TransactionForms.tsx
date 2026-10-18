@@ -183,7 +183,7 @@ function TransferForm({ transferId, onDone }: { transferId?: string | null; onDo
 
   return (
     <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
-      <p className="text-xs text-slate-500 sm:col-span-2">
+      <p className="text-xs text-slate-600 dark:text-slate-400 sm:col-span-2">
         Transferências movem dinheiro entre suas contas: não são receita nem despesa e não alteram o patrimônio.
       </p>
       <Field label="De">

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
-import { Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, inputCls, Loading, Table, td, th } from "../components/ui";
+import { Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, inputCls, Loading, PageHeader, Table, td, th } from "../components/ui";
 import { dateTime } from "../format";
 import { useSave } from "../hooks";
 import type { Me, UserRow } from "../types";
@@ -22,13 +22,9 @@ export default function Users({ me }: { me: Me }) {
     "Usuário atualizado.", () => setPending(null));
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Usuários</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
-          Todos os usuários veem e editam os mesmos dados financeiros. Administradores também gerenciam usuários.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Usuários"
+        description="Todos os usuários veem e editam os mesmos dados financeiros. Administradores também gerenciam usuários." />
       <Card title="Novo usuário"><NewUserForm /></Card>
       <Card title="Usuários cadastrados">
         <ErrorBox error={users.error} />
@@ -40,7 +36,7 @@ export default function Users({ me }: { me: Me }) {
               const self = u.id === me.id;
               return (
                 <tr key={u.id} className={u.is_active ? "" : "opacity-60"}>
-                  <td className={td}><span className="font-medium">{u.username}</span>{self && <span className="text-slate-500"> (você)</span>}</td>
+                  <td className={td}><span className="font-medium">{u.username}</span>{self && <span className="text-slate-600 dark:text-slate-400"> (você)</span>}</td>
                   <td className={td}><Badge tone={u.is_admin ? "blue" : "slate"}>{u.is_admin ? "Administrador" : "Usuário"}</Badge></td>
                   <td className={td}><Badge tone={u.is_active ? "green" : "red"}>{u.is_active ? "Ativo" : "Desativado"}</Badge></td>
                   <td className={td}>{dateTime(u.created_at)}</td>

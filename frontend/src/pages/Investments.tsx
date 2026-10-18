@@ -1,10 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
-import {
-  Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, FormActions, inputCls, Loading, Modal, MoneyInput,
-  Stat, Table, td, th, toneOf,
-} from "../components/ui";
+import { Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, FormActions, inputCls, Loading, Modal, MoneyInput, PageHeader, Stat, Table, td, th, toneOf } from "../components/ui";
 import {
   ASSET_CLASSES, brl, date, dateTime, decToInput, FIXED_INCOME, INCOME_TYPES, money, num, OP_KINDS, parseDecimal, pct,
   todayISO,
@@ -33,24 +30,20 @@ export default function Investments() {
   const last = status.data?.last_run as { finished_at?: string; ok?: number; errors?: number; skipped?: number } | null;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Investimentos</h1>
-        <div className="flex gap-2">
+    <div className="space-y-6">
+      <PageHeader title="Investimentos" actions={<>
           <Button variant="secondary" onClick={() => update.mutate(undefined)} disabled={update.isPending}>
             {update.isPending ? "Atualizando…" : "Atualizar cotações"}</Button>
           <Button onClick={() => setEditAsset(null)}>+ Novo ativo</Button>
-        </div>
-      </div>
+      </>} />
 
       {status.data && status.data.providers.length === 0 && (
-        <div role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900
-          dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+        <div role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
           Nenhum provedor de cotações configurado. O sistema funciona com preços informados manualmente; para
           atualização automática configure BRAPI_TOKEN (B3) e/ou ALPHAVANTAGE_API_KEY (exterior) no .env.
         </div>
       )}
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-slate-600 dark:text-slate-400">
         Provedores: {status.data?.providers.join(", ") || "nenhum"} · Câmbio: {status.data?.fx_provider ?? "manual"} ·
         Atualização automática: {status.data?.auto_update ? `a cada ${status.data.interval_minutes} min` : "desligada"} ·
         Última execução: {last?.finished_at ? `${dateTime(last.finished_at)} (${last.ok} ok, ${last.errors} erro(s), ${last.skipped} em cache)` : "nunca"}.
@@ -84,13 +77,13 @@ export default function Investments() {
                 onClick={() => setDetail(a.id)}>
                 <td className={td}><button className="text-left font-medium text-emerald-800 hover:underline dark:text-emerald-400"
                   onClick={() => setDetail(a.id)}>{a.ticker ?? a.name}</button>
-                  <div className="text-xs text-slate-500">{a.ticker ? a.name : a.institution}</div></td>
+                  <div className="text-xs text-slate-600 dark:text-slate-400">{a.ticker ? a.name : a.institution}</div></td>
                 <td className={td}>{ASSET_CLASSES[a.asset_class]}</td>
                 <td className={`${td} text-right tabular-nums`}>{num(a.quantity)}</td>
                 <td className={`${td} text-right tabular-nums`}>{money(a.avg_price, a.currency)}</td>
                 <td className={`${td} text-right tabular-nums`}>
                   {a.last_price ? money(a.last_price, a.currency) : a.quote_total_value ? "Avaliação total" : "—"}
-                  <div className="text-xs text-slate-500">{a.quote_reference_date ? date(a.quote_reference_date) : "sem cotação"}
+                  <div className="text-xs text-slate-600 dark:text-slate-400">{a.quote_reference_date ? date(a.quote_reference_date) : "sem cotação"}
                     {a.quote_source === "manual" && " · manual"}</div>
                   {a.quote_stale && <Badge tone="amber">Desatualizada</Badge>}</td>
                 <td className={`${td} text-right tabular-nums`}>{brl(a.market_value_brl)}
@@ -185,7 +178,7 @@ function AssetForm({ initial, onDone }: { initial: AssetRow | null; onDone: () =
         Arquivado</label>
       <Field label="Observações" className="sm:col-span-2"><textarea className={inputCls} rows={2} value={f.notes}
         onChange={s("notes")} /></Field>
-      <p className="text-xs text-slate-500 sm:col-span-2">
+      <p className="text-xs text-slate-600 dark:text-slate-400 sm:col-span-2">
         Quantidade, custo e preço médio são calculados pelas operações. Para uma posição já existente, registre uma
         compra (com conta) ou um “ajuste de posição” (sem movimentar dinheiro).
       </p>
@@ -216,7 +209,7 @@ function AssetDetail({ id, onEdit, onClose }: { id: number; onEdit: (a: AssetRow
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div><div className="text-lg font-semibold">{d.ticker ?? d.name}</div>
-          <div className="text-sm text-slate-500">{d.name} · {ASSET_CLASSES[d.asset_class]} · {cur}
+          <div className="text-sm text-slate-600 dark:text-slate-400">{d.name} · {ASSET_CLASSES[d.asset_class]} · {cur}
             {d.provider ? ` · provedor ${d.provider}` : " · cotação manual"}</div></div>
         <div className="flex gap-2">
           {d.provider && d.auto_quote && <Button variant="secondary" onClick={() => updateOne.mutate(undefined)}>Consultar cotação</Button>}
@@ -267,7 +260,7 @@ function AssetDetail({ id, onEdit, onClose }: { id: number; onEdit: (a: AssetRow
 
       <Card title="Cotações e avaliações (histórico de fontes)">
         <ManualQuoteForm assetId={id} currency={cur} fixed={FIXED_INCOME.has(d.asset_class)} />
-        <p className="my-2 text-xs text-slate-500">
+        <p className="my-2 text-xs text-slate-600 dark:text-slate-400">
           Prioridade: vale a cotação com data de referência mais recente; na mesma data, a manual prevalece sobre a
           automática. Nenhuma cotação é apagada por atualizações.
         </p>

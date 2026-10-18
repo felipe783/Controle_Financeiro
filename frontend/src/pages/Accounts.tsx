@@ -1,9 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
-import {
-  Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, FormActions, inputCls, Loading, Modal, MoneyInput,
-  Table, td, th,
-} from "../components/ui";
+import { Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, FormActions, inputCls, Loading, Modal, MoneyInput, PageHeader, Table, td, th } from "../components/ui";
 import { ACCOUNT_TYPES, brl, date, decToInput, parseDecimal, todayISO, toNum } from "../format";
 import { useAccounts, useSave } from "../hooks";
 import type { Account } from "../types";
@@ -18,11 +15,8 @@ export default function Accounts() {
   const total = list.reduce((s, a) => s + toNum(a.balance), 0);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Contas</h1>
-        <Button onClick={() => setEdit(null)}>+ Nova conta</Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Contas" actions={<Button onClick={() => setEdit(null)}>+ Nova conta</Button>} />
       <Card title={`Saldo total efetivado: ${brl(total)}`}>
         <ErrorBox error={accounts.error} />
         {accounts.isLoading ? <Loading /> : list.length === 0 ? (
@@ -35,7 +29,7 @@ export default function Accounts() {
             <tbody>{list.map((a) => (
               <tr key={a.id} className={a.archived ? "opacity-60" : ""}>
                 <td className={td}><div className="font-medium">{a.name} {a.archived && <Badge>Arquivada</Badge>}</div>
-                  <div className="text-xs text-slate-500">{a.institution}</div></td>
+                  <div className="text-xs text-slate-600 dark:text-slate-400">{a.institution}</div></td>
                 <td className={td}>{ACCOUNT_TYPES[a.type]}</td>
                 <td className={td}>{brl(a.initial_balance)} em {date(a.initial_balance_date)}</td>
                 <td className={`${td} text-right font-medium tabular-nums ${toNum(a.balance) < 0 ? "text-red-700" : ""}`}>

@@ -2,9 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api";
 import { TransactionModal, TransferModal } from "../components/TransactionForms";
-import {
-  Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, inputCls, Loading, Modal, Table, td, th,
-} from "../components/ui";
+import { Badge, Button, buttonClass, Card, ConfirmDialog, Empty, ErrorBox, Field, inputCls, Loading, Modal, PageHeader, Table, td, th } from "../components/ui";
 import { brl, date, KIND_LABEL, statusLabel, todayISO } from "../format";
 import { categoryOptions, useAccounts, useCategories, useSave } from "../hooks";
 import type { Transaction, TransactionPage } from "../types";
@@ -26,6 +24,9 @@ export default function Transactions() {
   const [transfer, setTransfer] = useState<{ id: string | null } | null>(null);
   const [toDelete, setToDelete] = useState<Transaction | null>(null);
   const [importing, setImporting] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const activeFilters = [filters.start, filters.end, filters.kind, filters.status, filters.account_id,
+    filters.category_id, filters.overdue].filter(Boolean).length;
 
   const del = useSave((t: Transaction) => api.del(`/transactions/${t.id}`), "Lançamento excluído.",
     () => setToDelete(null));
@@ -42,25 +43,25 @@ export default function Transactions() {
   const exportParams = { ...filters, kind: ["income", "expense"].includes(filters.kind) ? filters.kind : undefined };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Lançamentos</h1>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setEdit({ kind: "income", tx: null })}>+ Receita</Button>
+    <div className="space-y-6">
+      <PageHeader title="Lançamentos" actions={<>
           <Button onClick={() => setEdit({ kind: "expense", tx: null })}>+ Despesa</Button>
+          <Button variant="secondary" onClick={() => setEdit({ kind: "income", tx: null })}>+ Receita</Button>
           <Button variant="secondary" onClick={() => setTransfer({ id: null })}>Transferência</Button>
-          <Button variant="secondary" onClick={() => setImporting(true)}>Importar CSV</Button>
-          <a className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm
-            font-medium hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800"
-            href={api.url("/transactions/export", exportParams)}>Exportar CSV</a>
-        </div>
-      </div>
+          <Button variant="ghost" onClick={() => setImporting(true)}>Importar CSV</Button>
+          <a className={buttonClass("ghost")} href={api.url("/transactions/export", exportParams)}>Exportar CSV</a>
+      </>} />
 
       <Card>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Buscar descrição">
-            <input className={inputCls} value={filters.q} onChange={(e) => set("q", e.target.value)} maxLength={100} />
+        {/* No celular só a busca fica aberta; os demais filtros abrem sob demanda (no desktop, sempre visíveis). */}
+        <div className="flex items-end gap-2">
+          <Field label="Buscar descrição" className="flex-1">
+            <input className={inputCls} type="search" value={filters.q} onChange={(e) => set("q", e.target.value)} maxLength={100} />
           </Field>
+          <Button variant="secondary" className="md:hidden" aria-expanded={showFilters} aria-controls="filtros"
+            onClick={() => setShowFilters(!showFilters)}>Filtros{activeFilters ? ` (${activeFilters})` : ""}</Button>
+        </div>
+        <div id="filtros" className={`${showFilters ? "grid" : "hidden"} mt-3 gap-3 sm:grid-cols-2 md:grid lg:grid-cols-4`}>
           <Field label="De"><input type="date" className={inputCls} value={filters.start}
             onChange={(e) => set("start", e.target.value)} /></Field>
           <Field label="Até"><input type="date" className={inputCls} value={filters.end}
@@ -110,13 +111,13 @@ export default function Transactions() {
               <span className="text-emerald-700 dark:text-emerald-400">Entradas: {brl(p.sum_in)}</span>
               <span className="text-red-700 dark:text-red-400">Saídas: {brl(p.sum_out)}</span>
             </div>
-            <Table>
+            <Table minWidth="md:min-w-[640px]">
               <thead><tr>
                 <th className={th}><button onClick={() => sortBy("date")}>Data{arrow("date")}</button></th>
                 <th className={th}><button onClick={() => sortBy("description")}>Descrição{arrow("description")}</button></th>
-                <th className={th}>Tipo</th><th className={th}>Categoria</th><th className={th}>Conta</th>
+                <th className={`${th} hidden md:table-cell`}>Tipo</th><th className={`${th} hidden md:table-cell`}>Categoria</th><th className={`${th} hidden md:table-cell`}>Conta</th>
                 <th className={th}>Situação</th>
-                <th className={`${th} text-right`}><button onClick={() => sortBy("amount")}>Valor{arrow("amount")}</button></th>
+                <th className={`${th} hidden text-right md:table-cell`}><button onClick={() => sortBy("amount")}>Valor{arrow("amount")}</button></th>
                 <th className={th}><span className="sr-only">Ações</span></th>
               </tr></thead>
               <tbody>
@@ -125,18 +126,20 @@ export default function Transactions() {
                   return (
                     <tr key={t.id}>
                       <td className={`${td} whitespace-nowrap`}>{date(t.date)}
-                        {t.due_date && <div className="text-xs text-slate-500">vence {date(t.due_date)}</div>}</td>
+                        {t.due_date && <div className="text-xs text-slate-600 dark:text-slate-400">vence {date(t.due_date)}</div>}</td>
                       <td className={td}>{t.description}
+                        <div className={`tabular-nums md:hidden ${POSITIVE.has(t.kind) ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-red-700 dark:text-red-400"}`}>{POSITIVE.has(t.kind) ? "+" : "−"} {brl(t.amount)}</div>
                         {t.recurrence_id && <> <Badge tone="blue">Recorrente</Badge></>}
                         {t.investment_operation_id && <> <Badge tone="blue">Via investimento</Badge></>}</td>
-                      <td className={td}>{KIND_LABEL[t.kind]}</td>
-                      <td className={td}>{t.category_name ?? "—"}</td>
-                      <td className={td}>{t.account_name}</td>
+                      <td className={`${td} hidden md:table-cell`}>{KIND_LABEL[t.kind]}</td>
+                      <td className={`${td} hidden md:table-cell`}>{t.category_name ?? "—"}</td>
+                      <td className={`${td} hidden md:table-cell`}>{t.account_name}</td>
                       <td className={td}>
                         <Badge tone={t.overdue ? "red" : t.status === "settled" ? "green" : "amber"}>
                           {t.overdue ? "Atrasada" : statusLabel(t.kind, t.status)}</Badge>
                       </td>
-                      <td className={`${td} whitespace-nowrap text-right tabular-nums ${POSITIVE.has(t.kind)
+                      <td className={`${td} hidden whitespace-nowrap text-right tabular-nums md:table-cell ${POSITIVE.has(t.kind)
                         ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}>
                         {POSITIVE.has(t.kind) ? "+" : "−"} {brl(t.amount)}</td>
                       <td className={`${td} whitespace-nowrap text-right`}>

@@ -1,10 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
-import {
-  Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, FormActions, inputCls, Loading, Modal, MoneyInput, Stat,
-  Table, td, th,
-} from "../components/ui";
+import { Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, FormActions, inputCls, Loading, Modal, MoneyInput, PageHeader, Stat, Table, td, th } from "../components/ui";
 import { brl, date, decToInput, parseDecimal, pct, todayISO, toNum } from "../format";
 import { categoryOptions, useAccounts, useCategories, useSave } from "../hooks";
 import type { Transaction } from "../types";
@@ -23,8 +20,8 @@ const FREQ: Record<string, string> = { weekly: "Semanal", monthly: "Mensal", yea
 
 export default function Planning() {
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Planejamento</h1>
+    <div className="space-y-6">
+      <PageHeader title="Planejamento" description="Previsão de caixa, orçamentos por categoria, metas e lançamentos recorrentes." />
       <Forecast />
       <Budgets />
       <Goals />
@@ -100,7 +97,7 @@ function Budgets() {
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <span className="font-medium">{b.category_name} <Badge tone={tone[b.status]}>{label[b.status]}</Badge></span>
               <span className="tabular-nums">{brl(b.spent)} de {brl(b.amount)} ({pct(b.percent)})
-                {toNum(b.committed) > 0 && <span className="text-slate-500"> · {brl(b.committed)} previstos</span>}
+                {toNum(b.committed) > 0 && <span className="text-slate-600 dark:text-slate-400"> · {brl(b.committed)} previstos</span>}
                 <Button variant="ghost" className="text-red-700" onClick={() => del.mutate(b.id)}>Remover</Button></span>
             </div>
             <div className="mt-1 h-2 overflow-hidden rounded bg-slate-200 dark:bg-slate-700" role="progressbar"
@@ -123,7 +120,7 @@ function Goals() {
   const remove = useSave((g: GoalRow) => api.del(`/goals/${g.id}`), "Meta removida.", () => setDel(null));
   return (
     <Card title="Metas financeiras" actions={<Button onClick={() => setEdit(null)}>+ Meta</Button>}>
-      <p className="mb-3 text-xs text-slate-500">Metas são destinações de dinheiro que você já tem ou vai acumular; não
+      <p className="mb-3 text-xs text-slate-600 dark:text-slate-400">Metas são destinações de dinheiro que você já tem ou vai acumular; não
         somam ao patrimônio.</p>
       {q.isLoading ? <Loading /> : !q.data?.length ? <Empty>Nenhuma meta. Ex.: reserva de emergência, viagem.</Empty> : (
         <div className="grid gap-3 md:grid-cols-2">{q.data.map((g) => (
@@ -217,7 +214,7 @@ function Recurrences() {
     "Recorrência encerrada; previsões futuras removidas.", () => setStop(null));
   return (
     <Card title="Lançamentos recorrentes" actions={<Button onClick={() => setEdit(null)}>+ Recorrência</Button>}>
-      <p className="mb-3 text-xs text-slate-500">As ocorrências são geradas como “previstas” até 31 dias à frente, uma única
+      <p className="mb-3 text-xs text-slate-600 dark:text-slate-400">As ocorrências são geradas como “previstas” até 31 dias à frente, uma única
         vez cada; excluir uma ocorrência não faz com que ela seja recriada.</p>
       {!q.data?.length ? <Empty>Nenhuma recorrência.</Empty> : (
         <Table>

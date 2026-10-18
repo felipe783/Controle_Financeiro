@@ -22,10 +22,10 @@ export const tooltipStyle = {
 
 export const moneyFormatter = (v: unknown) => brl(toNum(v as string));
 
-export function ChartBox({ empty, children, height = 260, label }: {
-  empty: boolean; children: ReactNode; height?: number; label: string;
+export function ChartBox({ empty, children, height = 260, label, emptyText = "Sem dados no período." }: {
+  empty: boolean; children: ReactNode; height?: number; label: string; emptyText?: string;
 }) {
-  if (empty) return <Empty>Sem dados no período.</Empty>;
+  if (empty) return <Empty>{emptyText}</Empty>;
   return (
     <div role="img" aria-label={label} style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">{children as React.ReactElement}</ResponsiveContainer>

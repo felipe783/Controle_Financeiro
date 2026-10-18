@@ -3,10 +3,7 @@ import { useState, type FormEvent } from "react";
 import { CartesianGrid, Legend, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../api";
 import { axis, brlShort, ChartBox, INCOME, moneyFormatter, NEUTRAL, tooltipStyle } from "../components/charts";
-import {
-  Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, FormActions, inputCls, Loading, Modal, MoneyInput, Stat,
-  Table, td, th, toneOf,
-} from "../components/ui";
+import { Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, FormActions, inputCls, Loading, Modal, MoneyInput, PageHeader, Stat, Table, td, th, toneOf } from "../components/ui";
 import { brl, date, parseDecimal, todayISO, toNum } from "../format";
 import { useSave } from "../hooks";
 
@@ -31,14 +28,11 @@ export default function NetWorth() {
     "Líquido": toNum(p.net), "Caixa": toNum(p.cash), "Investimentos": toNum(p.investments), "Dívidas": toNum(p.liabilities) }));
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Patrimônio</h1>
-        <div className="flex gap-2">
+    <div className="space-y-6">
+      <PageHeader title="Patrimônio" actions={<>
           <Button variant="secondary" onClick={() => snap.mutate(undefined)}>Registrar snapshot de hoje</Button>
           <Button onClick={() => setNewLia(true)}>+ Dívida / obrigação</Button>
-        </div>
-      </div>
+      </>} />
       <ErrorBox error={nw.error} />
       {nw.isLoading && <Loading />}
       {d && (
@@ -52,7 +46,7 @@ export default function NetWorth() {
             <Stat label="Dívidas e obrigações" value={brl(d.liabilities)} tone={toNum(d.liabilities) ? "neg" : undefined} />
             <Stat label="Patrimônio líquido" value={brl(d.net)} tone={toneOf(d.net)} hint="Ativos − passivos" />
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-600 dark:text-slate-400">
             O caixa parado na corretora conta uma única vez, como dinheiro; comprar um ativo apenas troca dinheiro por
             investimento. Metas não somam ao patrimônio (são destinações de valores existentes).
           </p>
@@ -71,7 +65,7 @@ export default function NetWorth() {
             <Line dataKey="Dívidas" stroke="#be123c" />
           </LineChart>
         </ChartBox>
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
           Snapshots são registrados diariamente pelo worker e preservam as cotações da data. Pontos “(est.)” são fins de
           mês sem snapshot, estimados com lançamentos e cotações conhecidas até aquela data.
         </p>

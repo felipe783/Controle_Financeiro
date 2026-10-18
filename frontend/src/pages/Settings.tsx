@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
-import { Badge, Button, Card, ConfirmDialog, Empty, Field, inputCls, Table, td, th } from "../components/ui";
+import { Badge, Button, Card, ConfirmDialog, Empty, Field, inputCls, PageHeader, Table, td, th } from "../components/ui";
 import { dateTime } from "../format";
 import { useCategories, useSave } from "../hooks";
 import type { Category } from "../types";
@@ -30,8 +30,8 @@ export default function Settings() {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Cadastros</h1>
+    <div className="space-y-6">
+      <PageHeader title="Cadastros" description="Categorias de receitas e despesas e o histórico de alterações." />
       <Card title="Categorias">
         <form onSubmit={submit} className="mb-4 grid gap-2 sm:grid-cols-4">
           <Field label="Nome"><input className={inputCls} value={f.name} required maxLength={80}

@@ -7,7 +7,7 @@ import {
 import { api } from "../api";
 import { axis, brlShort, ChartBox, COLORS, EXPENSE, INCOME, moneyFormatter, NEUTRAL, tooltipStyle } from "../components/charts";
 import { TransactionModal, TransferModal } from "../components/TransactionForms";
-import { Badge, Button, Card, Empty, ErrorBox, inputCls, Loading, Stat, Table, td, th, toneOf } from "../components/ui";
+import { Badge, Button, Card, Empty, ErrorBox, focusRing, inputCls, Loading, PageHeader, Segmented, Stat, Table, td, th, toneOf } from "../components/ui";
 import { ASSET_CLASSES, brl, date, KIND_LABEL, monthLabel, pct, statusLabel, toNum } from "../format";
 import type { Transaction } from "../types";
 
@@ -53,23 +53,17 @@ export default function Dashboard() {
   const hasMonthly = monthly.some((m) => m.Receitas || m.Despesas);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Painel</h1>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setModal("income")}>+ Receita</Button>
-          <Button onClick={() => setModal("expense")}>+ Despesa</Button>
-          <Button variant="secondary" onClick={() => setModal("transfer")}>Transferência</Button>
-          <Link to="/investimentos" className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3
-            py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800">Investimento</Link>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Painel" actions={<>
+        <Button onClick={() => setModal("expense")}>+ Despesa</Button>
+        <Button variant="secondary" onClick={() => setModal("income")}>+ Receita</Button>
+        <Button variant="secondary" onClick={() => setModal("transfer")}>Transferência</Button>
+        <Link to="/investimentos" className={`inline-flex min-h-9 items-center rounded-md px-3 py-2 text-sm font-medium
+          text-emerald-800 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950 ${focusRing}`}>Investimento →</Link>
+      </>} />
 
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Período">
-        {PERIODS.map(([v, l]) => (
-          <Button key={v} variant={period === v ? "primary" : "secondary"} aria-pressed={period === v}
-            onClick={() => setPeriod(v)}>{l}</Button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <Segmented label="Período" options={PERIODS} value={period as (typeof PERIODS)[number][0]} onChange={setPeriod} />
         {period === "custom" && (
           <>
             <input type="date" aria-label="Início" className={`${inputCls} w-auto`} value={range.start}
@@ -81,30 +75,50 @@ export default function Dashboard() {
       </div>
 
       <ErrorBox error={q.error} />
-      {q.isLoading && <Loading />}
+      {q.isLoading && <Card><Loading rows={6} /></Card>}
       {d && (
         <>
           {d.warnings.length > 0 && (
-            <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900
-              dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            <div role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
               <strong>Atenção a avaliações:</strong> {d.warnings.join(" · ")}
             </div>
           )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Stat label="Saldo disponível" value={brl(k.cash_available)}
-              hint={`Em contas de investimento: ${brl(k.cash_investment_accounts)}`} />
-            <Stat label="Receitas do período" value={brl(k.income)} tone="pos" hint="Efetivamente recebidas" />
-            <Stat label="Despesas do período" value={brl(k.expense)} tone="neg" hint="Efetivamente pagas" />
-            <Stat label="Resultado do período" value={brl(k.result)} tone={toneOf(k.result)}
-              hint={`Taxa de economia: ${k.savings_rate === null ? "— (sem receitas)" : pct(k.savings_rate)}`} />
-            <Stat label="Total investido (custo)" value={brl(k.invested_cost)} />
-            <Stat label="Valor atual da carteira" value={brl(k.portfolio_value)}
-              hint={`Não realizado: ${brl(k.portfolio_unrealized)} · TIR: ${pct(k.portfolio_xirr)} a.a.`} />
-            <Stat label="Patrimônio bruto" value={brl(k.gross_worth)} hint={`Dívidas: ${brl(k.liabilities)}`} />
-            <Stat label="Patrimônio líquido" value={brl(k.net_worth)} tone={toneOf(k.net_worth)} />
-            <Stat label="Despesas previstas no período" value={brl(k.planned_expenses)} hint="Ainda não pagas" />
-            <Stat label="Contas a vencer (7 dias) ou atrasadas" value={k.upcoming_count}
-              tone={toNum(k.upcoming_count) ? "neg" : undefined} />
+          {/* Três números respondem "como estou?"; o resto detalha, agrupado pelo assunto. */}
+          <section aria-label="Resumo" className="grid gap-px overflow-hidden rounded-lg bg-slate-200 dark:bg-slate-800 md:grid-cols-3">
+            <div className="bg-white p-5 dark:bg-slate-900">
+              <Stat plain size="lg" label="Patrimônio líquido" value={brl(k.net_worth)} tone={toneOf(k.net_worth)}
+                hint={`Bruto ${brl(k.gross_worth)} − dívidas ${brl(k.liabilities)}`} />
+            </div>
+            <div className="bg-white p-5 dark:bg-slate-900">
+              <Stat plain size="lg" label="Saldo disponível" value={brl(k.cash_available)}
+                hint={`Mais ${brl(k.cash_investment_accounts)} parados em contas de investimento`} />
+            </div>
+            <div className="bg-white p-5 dark:bg-slate-900">
+              <Stat plain size="lg" label="Resultado do período" value={brl(k.result)} tone={toneOf(k.result)}
+                hint={k.savings_rate === null ? "Sem receitas no período" : `Taxa de economia de ${pct(k.savings_rate)}`} />
+            </div>
+          </section>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card title="Período">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+                <Stat plain label="Receitas recebidas" value={brl(k.income)} tone="pos" />
+                <Stat plain label="Despesas pagas" value={brl(k.expense)} tone="neg" />
+                <Stat plain label="Despesas previstas" value={brl(k.planned_expenses)} hint="Ainda não pagas" />
+                <Stat plain label="A vencer em 7 dias ou atrasadas" value={k.upcoming_count}
+                  tone={toNum(k.upcoming_count) ? "neg" : undefined} />
+              </div>
+            </Card>
+            <Card title="Investimentos" actions={<Link to="/investimentos" className={`rounded text-sm font-medium
+              text-emerald-800 hover:underline dark:text-emerald-400 ${focusRing}`}>Ver carteira</Link>}>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+                <Stat plain label="Valor atual da carteira" value={brl(k.portfolio_value)} />
+                <Stat plain label="Total investido (custo)" value={brl(k.invested_cost)} />
+                <Stat plain label="Ganho não realizado" value={brl(k.portfolio_unrealized)} tone={toneOf(k.portfolio_unrealized)} />
+                <Stat plain label="Rentabilidade (TIR)" value={k.portfolio_xirr ? `${pct(k.portfolio_xirr)} a.a.` : "—"}
+                  hint={k.portfolio_xirr ? undefined : "Exige 30 dias de histórico"} />
+              </div>
+            </Card>
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
@@ -119,7 +133,8 @@ export default function Dashboard() {
               </ChartBox>
             </Card>
             <Card title="Evolução do resultado mensal">
-              <ChartBox empty={!hasMonthly} label="Linha do resultado mensal">
+              <ChartBox empty={!hasMonthly || monthly.length < 2} label="Linha do resultado mensal"
+                emptyText={hasMonthly ? "Escolha um período de 3 meses ou mais para ver a evolução." : undefined}>
                 <LineChart data={monthly}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#94a3b833" />
                   <XAxis dataKey="name" tick={axis} /><YAxis tick={axis} tickFormatter={brlShort} width={80} />
@@ -139,7 +154,7 @@ export default function Dashboard() {
                   <Line dataKey="Patrimônio bruto" stroke={NEUTRAL} strokeDasharray="4 3" />
                 </LineChart>
               </ChartBox>
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
                 Pontos “(est.)” são estimativas de fim de mês calculadas com as cotações conhecidas naquela data;
                 os demais são snapshots registrados.
               </p>
