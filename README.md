@@ -15,7 +15,7 @@ em PostgreSQL e implantação com um script em qualquer servidor Linux com Docke
 | [docs/METODOLOGIA.md](docs/METODOLOGIA.md) | fórmulas: saldo, receitas/despesas, preço médio, TIR, câmbio, patrimônio |
 | [vault/_Financeiro.md](vault/_Financeiro.md) | **documentação arquitetural completa** (Obsidian): status, módulos, fluxos, decisões e problemas conhecidos |
 
-No Obsidian, as notas aparecem no vault `Contexto Projetos` em `Contexto Projetos/Financeiro/` (uma junction
+No Obsidian, as notas aparecem no vault `Contexto-Projetos` em `Contexto-Projetos/Financeiro/` (uma junction
 para `Financeiro/vault/`), com índice em `_Financeiro`.
 
 ## Sumário

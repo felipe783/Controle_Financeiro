@@ -23,7 +23,7 @@ O índice abaixo é carregado em toda sessão. As notas detalhadas ficam em `vau
 
 Fórmulas (saldo, preço médio, TIR, câmbio, patrimônio): `docs/METODOLOGIA.md`. Operação do servidor: `README.md`.
 
-Conceitos transversais: `E:/Downloads/!Faculdade/Contexto Projetos/Conhecimento/_Conhecimento.md`, lido sob demanda.
+Conceitos transversais: `../Contexto-Projetos/Conhecimento/_Conhecimento.md`, lido sob demanda.
 
 ## Comandos
 
@@ -72,7 +72,7 @@ Ao alterar comportamento, atualize na mesma tarefa:
 3. `vault/Estrutura (Financeiro).md`, se arquivos forem criados, movidos ou removidos.
 4. O `README.md`, se mudarem comandos, variáveis ou operação.
 
-Convenções do vault (o mesmo do Obsidian em `Contexto Projetos/Financeiro`, via junction):
-- Frontmatter: siga a tabela de **Convenções** em `E:/Downloads/!Faculdade/Contexto Projetos/Contexto Geral.md`.
+Convenções do vault (o mesmo do Obsidian em `Contexto-Projetos/Financeiro`, via junction):
+- Frontmatter: siga a tabela de **Convenções** em `../Contexto-Projetos/Contexto Geral.md`.
 - Nomes de nota únicos no vault inteiro: notas genéricas levam `(Financeiro)`; requisitos usam `FN-RF NN`.
-- Separe o que foi **executado** do que foi **lido no código**, com data. Depois de mudar notas, rode `python scripts/validar_vault.py` a partir de `Contexto Projetos`.
+- Separe o que foi **executado** do que foi **lido no código**, com data. Depois de mudar notas, rode `python scripts/validar_vault.py` a partir de `Contexto-Projetos`.
