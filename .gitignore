@@ -17,3 +17,6 @@ __pycache__/
 node_modules/
 frontend/dist/
 *.log
+
+# Segredos locais (nunca versionar)
+secrets.txt
