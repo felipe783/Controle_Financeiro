@@ -38,11 +38,23 @@ def period_range(period: str, start: dt.date | None, end: dt.date | None) -> tup
     return first, month_end
 
 
+def previous_range(period: str, start: dt.date, end: dt.date) -> tuple[dt.date, dt.date]:
+    """Período imediatamente anterior, de mesmo tamanho, para comparação no painel.
+    Períodos de meses inteiros recuam o mesmo número de meses (fevereiro não vira "28 dias antes")."""
+    months = {"month": 1, "3m": 3, "6m": 6, "year": 12}.get(period)
+    if months is None:
+        length = end - start
+        return start - length - dt.timedelta(days=1), start - dt.timedelta(days=1)
+    y, m = divmod(start.month - 1 - months, 12)
+    prev_start = dt.date(start.year + y, m + 1, 1)
+    return prev_start, start - dt.timedelta(days=1)
+
+
 @router.get("/dashboard")
 def dashboard(period: Literal["month", "3m", "6m", "year", "custom"] = "month",
               start: dt.date | None = None, end: dt.date | None = None, db: Session = Depends(get_db)):
     s, e = period_range(period, start, end)
-    d = reports.dashboard(db, s, e)
+    d = reports.dashboard(db, s, e, previous_range(period, s, e))
     d["upcoming"] = [tx_out(t) for t in d["upcoming"]]
     d["recent"] = [tx_out(t) for t in d["recent"]]
     return plain(d)
@@ -245,4 +257,15 @@ def audit_log(entity: str | None = None, entity_id: int | None = None, limit: in
         q = q.where(AuditLog.entity_id == entity_id)
     rows = db.scalars(q.order_by(AuditLog.id.desc()).limit(limit)).all()
     return plain([{"id": r.id, "at": r.at, "entity": r.entity, "entity_id": r.entity_id, "action": r.action,
-                   "before": r.before, "after": r.after, "user_id": r.user_id} for r in rows])
+                   "label": _audit_label(r), "before": r.before, "after": r.after, "user_id": r.user_id}
+                  for r in rows])
+
+
+def _audit_label(r: AuditLog) -> str | None:
+    """Nome legível do registro afetado (descrição, nome ou ticker), tirado do próprio snapshot da auditoria."""
+    for snap in (r.after, r.before):
+        if isinstance(snap, dict):
+            for key in ("description", "name", "ticker"):
+                if snap.get(key):
+                    return str(snap[key])
+    return None

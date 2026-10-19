@@ -1,9 +1,22 @@
+import { Archive, Pencil, Plus, Scale, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
-import { Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, FormActions, inputCls, Loading, Modal, MoneyInput, PageHeader, Table, td, th } from "../components/ui";
-import { ACCOUNT_TYPES, brl, date, decToInput, parseDecimal, todayISO, toNum } from "../format";
+import {
+  Button, Check, ConfirmDialog, cx, Empty, ErrorBox, Field, focusRing, inputCls, Loading, Money, MoneyInput,
+  PageHeader, RowMenu, Sheet, SheetActions,
+} from "../components/ui";
+import { ACCOUNT_TYPES, date, decToInput, parseDecimal, todayISO, toNum } from "../format";
 import { useAccounts, useSave } from "../hooks";
 import type { Account } from "../types";
+
+// Ordem de leitura: o dinheiro do dia a dia primeiro.
+const GROUPS: [string, string[]][] = [
+  ["Dia a dia", ["checking", "payment", "cash"]],
+  ["Reservas", ["savings"]],
+  ["Corretoras e investimentos", ["investment"]],
+  ["Outras", ["other"]],
+];
 
 export default function Accounts() {
   const accounts = useAccounts();
@@ -12,47 +25,96 @@ export default function Accounts() {
   const [toDelete, setToDelete] = useState<Account | null>(null);
   const del = useSave((a: Account) => api.del(`/accounts/${a.id}`), "Conta excluída.", () => setToDelete(null));
   const list = accounts.data ?? [];
-  const total = list.reduce((s, a) => s + toNum(a.balance), 0);
+  const open = list.filter((a) => !a.archived);
+  const archived = list.filter((a) => a.archived);
+  const total = open.reduce((s, a) => s + toNum(a.balance), 0);
+  const pendingIn = open.reduce((s, a) => s + toNum(a.pending_in), 0);
+  const pendingOut = open.reduce((s, a) => s + toNum(a.pending_out), 0);
+
+  const row = (a: Account) => (
+    <li key={a.id} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_10rem_11rem_auto] sm:px-5">
+      <div className="min-w-0">
+        <Link to={`/lancamentos?account_id=${a.id}`} className={cx("rounded font-medium hover:text-anil hover:underline", focusRing)}>{a.name}</Link>
+        <div className="truncate text-xs text-ink-soft">{[ACCOUNT_TYPES[a.type], a.institution].filter(Boolean).join(" · ")}</div>
+      </div>
+      <div className="col-start-2 row-start-1 text-right sm:col-start-3">
+        <Money value={a.balance} size="md" className={toNum(a.balance) < 0 ? "text-neg" : ""} />
+      </div>
+      <div className="col-span-2 text-xs text-ink-soft sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:text-right">
+        {toNum(a.pending_in) || toNum(a.pending_out) ? (
+          <>
+            {toNum(a.pending_in) > 0 && <div>a receber <Money value={a.pending_in} size="sm" tone="muted" /></div>}
+            {toNum(a.pending_out) > 0 && <div>a pagar <Money value={a.pending_out} size="sm" tone="muted" /></div>}
+          </>
+        ) : <span className="hidden sm:inline">Nada pendente</span>}
+      </div>
+      <div className="col-span-2 flex items-center justify-end gap-1 sm:col-span-1">
+        {!a.archived && <Button size="sm" variant="ghost" icon={Scale} onClick={() => setReconcile(a)}>Conciliar</Button>}
+        <RowMenu label={`Ações de ${a.name}`} items={[
+          { label: "Editar", icon: Pencil, onSelect: () => setEdit(a) },
+          { label: "Excluir", icon: Trash2, danger: true, onSelect: () => setToDelete(a) },
+        ]} />
+      </div>
+    </li>
+  );
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Contas" actions={<Button onClick={() => setEdit(null)}>+ Nova conta</Button>} />
-      <Card title={`Saldo total efetivado: ${brl(total)}`}>
-        <ErrorBox error={accounts.error} />
-        {accounts.isLoading ? <Loading /> : list.length === 0 ? (
-          <Empty>Nenhuma conta. Cadastre sua conta corrente, carteira de dinheiro ou corretora.</Empty>
-        ) : (
-          <Table>
-            <thead><tr><th className={th}>Conta</th><th className={th}>Tipo</th><th className={th}>Saldo inicial</th>
-              <th className={`${th} text-right`}>Saldo atual</th><th className={`${th} text-right`}>A receber / a pagar</th>
-              <th className={th}><span className="sr-only">Ações</span></th></tr></thead>
-            <tbody>{list.map((a) => (
-              <tr key={a.id} className={a.archived ? "opacity-60" : ""}>
-                <td className={td}><div className="font-medium">{a.name} {a.archived && <Badge>Arquivada</Badge>}</div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400">{a.institution}</div></td>
-                <td className={td}>{ACCOUNT_TYPES[a.type]}</td>
-                <td className={td}>{brl(a.initial_balance)} em {date(a.initial_balance_date)}</td>
-                <td className={`${td} text-right font-medium tabular-nums ${toNum(a.balance) < 0 ? "text-red-700" : ""}`}>
-                  {brl(a.balance)}</td>
-                <td className={`${td} text-right text-xs tabular-nums`}>+{brl(a.pending_in)} / −{brl(a.pending_out)}</td>
-                <td className={`${td} whitespace-nowrap text-right`}>
-                  {!a.archived && <Button variant="ghost" onClick={() => setReconcile(a)}>Conciliar</Button>}
-                  <Button variant="ghost" onClick={() => setEdit(a)}>Editar</Button>
-                  <Button variant="danger-ghost" onClick={() => setToDelete(a)}>Excluir</Button>
-                </td>
-              </tr>))}</tbody>
-          </Table>
-        )}
-      </Card>
-      <Modal open={edit !== undefined} onClose={() => setEdit(undefined)} title={edit ? "Editar conta" : "Nova conta"}>
+    <div>
+      <PageHeader title="Contas" context="Saldos calculados a partir do saldo inicial e de tudo que já foi efetivado."
+        actions={<Button icon={Plus} onClick={() => setEdit(null)}>Nova conta</Button>} />
+      <ErrorBox error={accounts.error} className="mb-4" />
+      {accounts.isLoading ? <Loading rows={6} /> : list.length === 0 ? (
+        <div className="rounded-md border border-rule bg-sheet">
+          <Empty title="Nenhuma conta cadastrada" action={<Button icon={Plus} onClick={() => setEdit(null)}>Cadastrar conta</Button>}>
+            Comece pela conta corrente, pela carteira de dinheiro ou pela corretora. O saldo de hoje entra como saldo inicial.
+          </Empty>
+        </div>
+      ) : (
+        <>
+          <dl className="mb-6 flex flex-wrap items-end gap-x-10 gap-y-3">
+            <div><dt className="text-sm text-ink-soft">Total em contas</dt><dd className="mt-1"><Money value={total} size="xl" /></dd></div>
+            <div><dt className="text-[13px] text-ink-soft">A receber</dt><dd><Money value={pendingIn} size="md" flow="in" /></dd></div>
+            <div><dt className="text-[13px] text-ink-soft">A pagar</dt><dd><Money value={pendingOut} size="md" flow="out" /></dd></div>
+          </dl>
+          <div className="space-y-5">
+            {GROUPS.map(([label, types]) => {
+              const items = open.filter((a) => types.includes(a.type));
+              if (!items.length) return null;
+              const sub = items.reduce((s, a) => s + toNum(a.balance), 0);
+              return (
+                <section key={label} className="rounded-md border border-rule bg-sheet">
+                  <header className="flex items-baseline justify-between border-b border-rule px-4 py-2.5 sm:px-5">
+                    <h2 className="text-[15px] font-semibold">{label}</h2>
+                    <Money value={sub} size="sm" tone="muted" />
+                  </header>
+                  <ul className="divide-y divide-rule/70">{items.map(row)}</ul>
+                </section>
+              );
+            })}
+            {archived.length > 0 && (
+              <details className="rounded-md border border-rule bg-sheet">
+                <summary className={cx("flex cursor-pointer items-center gap-2 px-4 py-3 text-sm text-ink-soft sm:px-5", focusRing)}>
+                  <Archive aria-hidden="true" className="size-4" />{archived.length} {archived.length === 1 ? "conta arquivada" : "contas arquivadas"}
+                </summary>
+                <ul className="divide-y divide-rule/70 border-t border-rule opacity-80">{archived.map(row)}</ul>
+              </details>
+            )}
+          </div>
+        </>
+      )}
+
+      <Sheet open={edit !== undefined} onClose={() => setEdit(undefined)} title={edit ? `Editar ${edit.name}` : "Nova conta"}
+        footer={<SheetActions form="account-form" onCancel={() => setEdit(undefined)} />}>
         {edit !== undefined && <AccountForm initial={edit} onDone={() => setEdit(undefined)} />}
-      </Modal>
-      <Modal open={!!reconcile} onClose={() => setReconcile(null)} title={`Conciliar ${reconcile?.name ?? ""}`}>
+      </Sheet>
+      <Sheet open={!!reconcile} onClose={() => setReconcile(null)} title={`Conciliar ${reconcile?.name ?? ""}`}
+        description="Ajuste o saldo calculado ao valor do extrato do banco."
+        footer={<SheetActions form="reconcile-form" label="Conciliar" onCancel={() => setReconcile(null)} />}>
         {reconcile && <ReconcileForm account={reconcile} onDone={() => setReconcile(null)} />}
-      </Modal>
-      <ConfirmDialog open={!!toDelete} title="Excluir conta" onClose={() => setToDelete(null)} busy={del.isPending}
+      </Sheet>
+      <ConfirmDialog open={!!toDelete} title={`Excluir ${toDelete?.name ?? "conta"}`} onClose={() => setToDelete(null)} busy={del.isPending}
         onConfirm={() => toDelete && del.mutate(toDelete)}
-        message="Só contas sem lançamentos podem ser excluídas. Contas com histórico devem ser arquivadas." />
+        message="Só contas sem lançamentos podem ser excluídas. Se esta tiver histórico, edite-a e marque como arquivada." />
     </div>
   );
 }
@@ -74,30 +136,28 @@ function AccountForm({ initial, onDone }: { initial: Account | null; onDone: () 
     save.mutate({ ...f, initial_balance: bal, institution: f.institution || null, notes: f.notes || null });
   }
   return (
-    <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
-      <Field label="Nome"><input className={inputCls} value={f.name} required maxLength={100}
-        onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-      <Field label="Instituição"><input className={inputCls} value={f.institution} maxLength={100}
-        onChange={(e) => setF({ ...f, institution: e.target.value })} /></Field>
+    <form id="account-form" onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+      <Field label="Nome" className="sm:col-span-2"><input className={inputCls} value={f.name} required maxLength={100} autoFocus
+        placeholder="Conta corrente, Nubank, Carteira…" onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
       <Field label="Tipo">
         <select className={inputCls} value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>
           {Object.entries(ACCOUNT_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </Field>
-      <Field label="Saldo inicial (R$)" hint="Pode ser negativo (ex.: cheque especial).">
+      <Field label="Instituição"><input className={inputCls} value={f.institution} maxLength={100}
+        onChange={(e) => setF({ ...f, institution: e.target.value })} /></Field>
+      <Field label="Saldo inicial" hint="Pode ser negativo (cheque especial).">
         <MoneyInput allowNegative value={f.initial_balance} onChange={(v) => setF({ ...f, initial_balance: v })} required />
       </Field>
-      <Field label="Data do saldo inicial" hint="Movimentos efetivados antes desta data não entram no saldo.">
+      <Field label="Saldo em" hint="Movimentos efetivados antes desta data já estão no saldo inicial.">
         <input type="date" className={inputCls} value={f.initial_balance_date} required
           onChange={(e) => setF({ ...f, initial_balance_date: e.target.value })} />
       </Field>
-      <label className="flex items-center gap-2 text-sm sm:pt-6">
-        <input type="checkbox" checked={f.archived} onChange={(e) => setF({ ...f, archived: e.target.checked })} />
-        Arquivada (não aceita novos lançamentos)
-      </label>
       <Field label="Observações" className="sm:col-span-2"><textarea className={inputCls} rows={2} value={f.notes}
         onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
-      <div className="sm:col-span-2"><ErrorBox error={error} /><FormActions onCancel={onDone} busy={save.isPending} /></div>
+      {initial && <Check className="sm:col-span-2" checked={f.archived} onChange={(v) => setF({ ...f, archived: v })}>
+        Arquivada (sai das listas e não aceita novos lançamentos)</Check>}
+      <div className="sm:col-span-2"><ErrorBox error={error} /></div>
     </form>
   );
 }
@@ -107,26 +167,33 @@ function ReconcileForm({ account, onDone }: { account: Account; onDone: () => vo
   const [error, setError] = useState<string | null>(null);
   const save = useSave((body: unknown) => api.post(`/accounts/${account.id}/reconcile`, body),
     "Conciliação registrada.", onDone);
+  const actual = parseDecimal(f.actual);
+  // A diferença só é conhecida aqui para a data de hoje; em outra data o servidor calcula o saldo daquele dia.
+  const diff = actual === null || f.date !== todayISO() ? null : Number(actual) - toNum(account.balance);
   function submit(e: FormEvent) {
     e.preventDefault();
-    const actual = parseDecimal(f.actual);
     if (actual === null) return setError("Saldo inválido.");
     save.mutate({ date: f.date, actual_balance: actual, note: f.note || null });
   }
   return (
-    <form onSubmit={submit} className="space-y-3">
-      <p className="text-sm text-slate-600 dark:text-slate-400">
-        Informe o saldo real do extrato. Se houver diferença, será criado um lançamento de ajuste (não é receita nem
-        despesa) e o histórico fica na auditoria. Saldo calculado hoje: <strong>{brl(account.balance)}</strong>.
-      </p>
+    <form id="reconcile-form" onSubmit={submit} className="space-y-4">
+      <div className="flex items-baseline justify-between rounded bg-sunk px-3 py-2.5 text-sm">
+        <span className="text-ink-soft">Saldo calculado hoje</span><Money value={account.balance} />
+      </div>
       <Field label="Data do extrato"><input type="date" className={inputCls} value={f.date} required
         onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
-      <Field label="Saldo real (R$)"><MoneyInput allowNegative value={f.actual} required
+      <Field label="Saldo no extrato"><MoneyInput allowNegative value={f.actual} required autoFocus
         onChange={(v) => setF({ ...f, actual: v })} /></Field>
+      {diff !== null && Math.abs(diff) >= 0.005 && (
+        <p className="text-sm text-ink-soft">
+          Será criado um ajuste de <Money value={diff} size="sm" tone="signed" /> (não conta como receita nem despesa
+          e fica no histórico).
+        </p>
+      )}
       <Field label="Observação"><input className={inputCls} value={f.note} maxLength={500}
         onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
+      <p className="text-xs text-ink-soft">Saldo inicial de <Money value={account.initial_balance} size="sm" tone="muted" /> em {date(account.initial_balance_date)}.</p>
       <ErrorBox error={error} />
-      <FormActions onCancel={onDone} busy={save.isPending} label="Conciliar" />
     </form>
   );
 }

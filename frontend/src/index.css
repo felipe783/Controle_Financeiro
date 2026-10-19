@@ -2,36 +2,91 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Tokens do tema. Canais RGB separados para o Tailwind aplicar opacidade (bg-anil/10).
+ * Papel frio com tinta azul-escura; "anil" é a cor da marca e das ações; verde e vermelho
+ * ficam reservados para o sentido do dinheiro (entrou / saiu), nunca para decoração.
+ */
 :root {
   color-scheme: light;
+  --paper: 238 241 244;
+  --sheet: 255 255 255;
+  --sunk: 244 246 248;
+  --ink: 26 34 48;
+  --ink-soft: 83 93 110;
+  --ink-faint: 120 130 146;
+  --rule: 217 222 229;
+  --rule-strong: 190 197 208;
+  --anil: 58 63 166;
+  --anil-strong: 44 48 135;
+  --anil-wash: 232 233 250;
+  --anil-ink: 255 255 255;
+  --pos: 24 121 78;
+  --pos-wash: 226 244 234;
+  --neg: 192 54 44;
+  --neg-wash: 252 233 231;
+  --warn: 150 88 0;
+  --warn-wash: 255 243 222;
 }
 .dark {
   color-scheme: dark;
+  --paper: 17 20 27;
+  --sheet: 25 29 38;
+  --sunk: 21 24 32;
+  --ink: 230 233 240;
+  --ink-soft: 166 174 190;
+  --ink-faint: 128 137 154;
+  --rule: 44 50 63;
+  --rule-strong: 66 74 90;
+  --anil: 160 166 245;
+  --anil-strong: 190 194 250;
+  --anil-wash: 38 41 82;
+  --anil-ink: 18 20 48;
+  --pos: 92 200 142;
+  --pos-wash: 20 52 38;
+  --neg: 248 128 116;
+  --neg-wash: 64 26 24;
+  --warn: 240 182 92;
+  --warn-wash: 58 42 16;
 }
-body {
-  @apply bg-slate-100 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  text-rendering: optimizeLegibility;
-}
-/* Superfícies que o navegador desenha sozinho também seguem a paleta. */
-::selection {
-  @apply bg-emerald-200 text-emerald-950 dark:bg-emerald-800 dark:text-emerald-50;
-}
-input,
-textarea {
-  caret-color: theme("colors.emerald.700");
-}
-.dark input,
-.dark textarea {
-  caret-color: theme("colors.emerald.400");
-}
-* {
-  scrollbar-color: theme("colors.slate.300") transparent;
-}
-.dark * {
-  scrollbar-color: theme("colors.slate.700") transparent;
-}
-h1,
-h2 {
-  text-wrap: balance;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-paper font-sans text-sm text-ink antialiased;
+    font-feature-settings: "ss01" 0;
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  ::selection {
+    @apply bg-anil/25;
+  }
+  input,
+  textarea {
+    caret-color: rgb(var(--anil));
+  }
+  * {
+    scrollbar-color: rgb(var(--rule-strong)) transparent;
+  }
+  /* Valores monetários e datas sempre alinham por coluna. */
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="checkbox"] {
+    accent-color: rgb(var(--anil));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      transition-duration: 1ms !important;
+    }
+  }
 }

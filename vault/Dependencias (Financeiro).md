@@ -48,7 +48,10 @@ pip install -r backend/requirements-dev.txt
 | [react-router-dom](https://reactrouter.com/) | 6.28.1 | rotas das páginas |
 | [@tanstack/react-query](https://tanstack.com/query) | 5.62.8 | cache e recarga após alterações |
 | [Recharts](https://recharts.org/) | 3.10.1 | gráficos |
-| [@radix-ui/react-dialog](https://www.radix-ui.com/) | 1.1.4 | modais acessíveis (foco, Esc) |
+| [@radix-ui/react-dialog](https://www.radix-ui.com/) | 1.1.4 | folhas laterais e diálogos acessíveis (foco, Esc) |
+| [@radix-ui/react-dropdown-menu](https://www.radix-ui.com/) | 2.1.4 | menu "⋯" de ações por linha, navegável por teclado |
+| [lucide-react](https://lucide.dev/) | 0.460.0 | ícones SVG |
+| [@fontsource/ibm-plex-sans](https://fontsource.org/) e `ibm-plex-sans-condensed` | 5.1.0 | fontes empacotadas pelo Vite (a CSP do Nginx só aceita `font-src 'self'`) |
 | [Tailwind CSS](https://tailwindcss.com/) | 3.4.17 | estilos, tema escuro por classe |
 | [Vite](https://vite.dev/) | 6.0.7 | build e servidor de desenvolvimento |
 | [TypeScript](https://www.typescriptlang.org/) | 5.7.2 | tipagem (`strict`) |

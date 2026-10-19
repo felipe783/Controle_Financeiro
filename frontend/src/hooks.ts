@@ -22,6 +22,12 @@ export function useSave<TArgs>(fn: (args: TArgs) => Promise<unknown>, okMessage:
   });
 }
 
+/** Marca lançamentos como pagos/recebidos hoje (um ou vários, numa única operação no servidor). */
+export function useSettle(onDone?: () => void) {
+  return useSave((ids: number[]) => api.post<{ changed: number }>("/transactions/bulk/settle", { ids }),
+    "Marcado como efetivado.", onDone);
+}
+
 export function categoryOptions(cats: Category[] | undefined, kind: "income" | "expense") {
   if (!cats) return [];
   const active = cats.filter((c) => c.kind === kind && !c.archived);

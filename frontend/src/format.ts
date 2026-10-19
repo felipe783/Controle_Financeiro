@@ -13,6 +13,18 @@ export function brl(v: Dec): string {
   return brlFmt.format(Number(v));
 }
 
+/** Partes do valor formatado, para compor símbolo, inteiro e centavos com tamanhos diferentes. */
+export function moneyParts(v: number, currency = "BRL") {
+  const parts = new Intl.NumberFormat("pt-BR", { style: "currency", currency }).formatToParts(v);
+  const pick = (t: string) => parts.filter((p) => p.type === t).map((p) => p.value).join("");
+  return {
+    symbol: pick("currency"),
+    integer: parts.filter((p) => p.type === "integer" || p.type === "group").map((p) => p.value).join(""),
+    decimal: pick("decimal"),
+    fraction: pick("fraction"),
+  };
+}
+
 export function money(v: Dec, currency = "BRL"): string {
   if (v === null || v === undefined || v === "") return "—";
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(Number(v));
@@ -44,6 +56,39 @@ export function todayISO(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro",
+  "novembro", "dezembro"];
+const WEEKDAYS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+
+export function addDaysISO(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
+/** Cabeçalho de dia no extrato: "Hoje", "Ontem", "Amanhã" ou "quarta, 14 de outubro" (com ano se não for o atual). */
+export function dayLabel(iso: string, today = todayISO()): string {
+  if (iso === today) return "Hoje";
+  if (iso === addDaysISO(today, -1)) return "Ontem";
+  if (iso === addDaysISO(today, 1)) return "Amanhã";
+  const [y, m, d] = iso.split("-").map(Number);
+  const wd = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return `${wd}, ${d} de ${MONTHS[m - 1]}${String(y) !== today.slice(0, 4) ? ` de ${y}` : ""}`;
+}
+
+/** "2026-10" → "outubro de 2026". */
+export function monthName(ym: string): string {
+  const [y, m] = ym.split("-");
+  return `${MONTHS[Number(m) - 1]} de ${y}`;
+}
+
+/** "14 out" — datas curtas em listas. */
+export function shortDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const [, m, d] = iso.slice(0, 10).split("-");
+  return `${Number(d)} ${MONTHS[Number(m) - 1].slice(0, 3)}`;
 }
 
 export function monthLabel(ym: string): string {
@@ -127,3 +172,15 @@ export const INCOME_TYPES: Record<string, string> = {
 };
 
 export const FIXED_INCOME = new Set(["treasury", "cdb", "lci_lca", "fixed_income", "fund"]);
+
+/** Lançamentos que aumentam o saldo da conta (o resto diminui). */
+const INFLOW = new Set(["income", "transfer_in", "adjustment_in", "investment_in"]);
+export const isInflow = (kind: string) => INFLOW.has(kind);
+
+/** Variação relativa entre dois valores; null quando a base é zero (sem comparação honesta). */
+export function change(current: Dec, previous: Dec): number | null {
+  const c = toNum(current), p = toNum(previous);
+  return p === 0 ? null : (c - p) / Math.abs(p);
+}
+
+export const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

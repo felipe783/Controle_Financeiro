@@ -39,14 +39,18 @@ contagem e sem inventar valores. A metodologia de cálculo está em [docs/METODO
 
 ## 2. Funcionalidades
 
-- **Painel:** saldo disponível, receitas, despesas e resultado do período, taxa de economia, custo e valor
-  da carteira, ganho não realizado, TIR, patrimônio bruto e líquido, despesas previstas, contas a vencer.
-  São 8 gráficos: receitas × despesas, resultado mensal, evolução do patrimônio, despesas por categoria,
-  carteira por classe, valor da carteira, aportes × rendimentos e proventos. Filtros: mês atual, 3 meses,
-  6 meses, ano e período personalizado.
+- **Visão geral:** patrimônio líquido com a composição (conta, corretora, investimentos) e a curva de 12
+  meses; recebido, gasto e sobra do período comparados com o período anterior; contas a pagar em 7 dias e
+  atrasadas com botão "Pagar" ali mesmo; para onde foi o dinheiro (categorias com link para os
+  lançamentos); últimos lançamentos; resumo da carteira (valor × custo, classes, aportes e proventos).
+  Períodos: mês, 3 meses, 6 meses, ano e personalizado.
+- **Novo lançamento de qualquer tela:** botão fixo no menu (e tecla **N**) abre uma folha lateral para
+  despesa, receita ou transferência, com "Salvar e lançar outro".
 - **Lançamentos:** receitas e despesas com situação (prevista, pendente, paga/recebida; "atrasada" é
   calculada), competência, vencimento, data de efetivação, categoria/subcategoria, conta, forma de
-  pagamento, fixa/variável e observações. Também: busca, filtros, ordenação, paginação, duplicação,
+  pagamento, fixa/variável e observações. O extrato é agrupado por dia, com filtros guardados na URL
+  (links compartilháveis), seleção de vários lançamentos para marcar como efetivados ou excluir de uma vez,
+  busca, ordenação, paginação, duplicação,
   exclusão com confirmação, exportação e importação CSV (com pré-visualização e detecção de duplicados)
   e recorrências sem duplicação.
 - **Contas:** corrente, poupança, pagamento, dinheiro, investimento. Saldo calculado a partir do saldo
@@ -61,14 +65,19 @@ contagem e sem inventar valores. A metodologia de cálculo está em [docs/METODO
   de fontes, aviso de cotação desatualizada e registro de cada consulta. Câmbio PTAX automático ou manual.
 - **Patrimônio:** consolidação de contas, investimentos e dívidas; snapshots diários; histórico com
   estimativas identificadas.
-- **Planejamento:** orçamento mensal por categoria com alerta, metas com aportes e prazo, previsão de caixa.
-- **Cadastros:** categorias personalizáveis (com subcategorias) e trilha de auditoria.
+- **Planejamento:** previsão de caixa como agenda com o saldo depois de cada lançamento, orçamento mensal
+  por categoria com alerta, metas com aportes e prazo, recorrências.
+- **Categorias e histórico:** categorias personalizáveis (com subcategorias) e histórico legível de cada
+  criação, alteração e exclusão.
 - **Dados por usuário:** cada pessoa tem as próprias contas, lançamentos, investimentos, patrimônio,
   orçamentos e metas. O isolamento é garantido pelo PostgreSQL (Row-Level Security), não só pela interface.
 - **Usuários (administradores):** criar contas para outras pessoas, promover/rebaixar administradores e
   desativar acessos (encerra as sessões na hora). O sistema impede ficar sem nenhum administrador ativo.
-- **Interface:** responsiva, tema claro/escuro, formatação brasileira, navegação por teclado, mensagens de
-  sucesso e erro, estados de carregamento e vazios.
+- **Interface:** identidade própria de "caderneta" (valores em algarismos tabulares, IBM Plex Sans e Plex
+  Sans Condensed empacotadas no build), menu lateral agrupado no computador e barra inferior no celular,
+  página própria para cada ativo (`/investimentos/:id`), tema claro/escuro (segue o sistema até você
+  escolher), formatação brasileira, navegação por teclado, mensagens de sucesso e erro, estados de
+  carregamento e vazios.
 
 Não há dados de demonstração: tudo o que aparece foi cadastrado por você.
 
@@ -122,7 +131,7 @@ Financeiro/
 │   ├── migrations/            # Alembic (versões em migrations/versions)
 │   ├── tests/                 # pytest (exige PostgreSQL de teste)
 │   └── requirements*.txt
-├── frontend/                  # React (src/pages, src/components)
+├── frontend/                  # React: src/pages (uma por rota), src/components (ui, charts, formulários)
 ├── infra/
 │   ├── nginx/default.conf     # proxy, SPA, cabeçalhos de segurança
 │   └── postgres/init-app-user.sh   # cria o usuário da aplicação na 1ª inicialização

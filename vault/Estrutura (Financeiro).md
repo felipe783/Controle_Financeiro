@@ -45,8 +45,8 @@ Financeiro/
 	|  |--📁 public
 	|  |  |--theme.js            ← tema claro/escuro antes do React (compatível com a CSP)
 	|  |--📁 src
-	|  |  |--📁 components       ← ui.tsx, charts.tsx, TransactionForms.tsx
-	|  |  |--📁 pages            ← Dashboard, Transactions, Accounts, Investments, NetWorth, Planning, Settings, Users
+	|  |  |--📁 components       ← ui.tsx (design system), charts.tsx, TransactionForms.tsx (lançamento rápido), InvestmentForms.tsx
+	|  |  |--📁 pages            ← Dashboard, Transactions, Accounts, Investments, AssetPage, NetWorth, Planning, Categories, Audit, Users
 	|  |  |--App.tsx / main.tsx / api.ts / hooks.ts / format.ts / types.ts
 	|  |  |--format.test.ts      ← vitest
 	|  |--package.json / package-lock.json / vite.config.ts / tailwind.config.js

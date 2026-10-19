@@ -14,7 +14,7 @@ Stack:
   - Nginx
 Codigo: "Financeiro"
 Repositorio: ""
-Atualizado: 2026-10-18
+Atualizado: 2026-10-19
 ---
 # Financeiro
 
@@ -37,7 +37,8 @@ Sistema de **gestão financeira pessoal**: contas, receitas e despesas, transfer
 | Autenticação (Argon2, sessão em cookie) e logout real | Implementado; logout corrigido em 2026-10-18 |
 | Gestão de usuários com papéis administrador/usuário | Implementado em 2026-10-18 (`/api/users`, tela Usuários) |
 | Dados financeiros isolados por usuário (Row-Level Security) | Implementado em 2026-10-18 (migração `0003`); verificado em testes e no navegador |
-| Testes automatizados | 88 testes `pytest` (como papel sem superusuário) e 3 `vitest` passando em 2026-10-18 |
+| Interface reconstruída (identidade "caderneta", lançamento rápido, extrato por dia, ações em lote, página do ativo) | Implementado em 2026-10-19; ver [[!Modulo Frontend (Financeiro)|!Modulo Frontend]] |
+| Testes automatizados | 96 testes `pytest` (como papel sem superusuário) e 5 `vitest` passando em 2026-10-19 |
 | Docker Compose, Nginx e scripts ([[FN-RF 08|RF 08]]) | Implementado; imagens **nunca construídas** (sem daemon Docker na máquina de desenvolvimento) |
 | Repositório remoto no GitHub (privado) | Pendente: `gh` não autenticado |
 
@@ -63,6 +64,8 @@ cd frontend && npm test && npm run typecheck && npm run build
 > - `bash -n` e ShellCheck nos scripts, e `docker compose config`.
 >
 > Não verificado: `docker build` e `docker compose up`.
+>
+> Verificado em 2026-10-19 no Linux (Fedora, Python 3.14, PostgreSQL 16 num container descartável `docker run --rm`): `pytest` (96 passando como `fin_test`), `tsc`, `vitest`, `vite build` e a interface nova navegada no Firefox headless, com dados fictícios.
 
 ## Mapa das notas
 
@@ -103,6 +106,8 @@ Revisados em 2026-10-18.
 
 ## Decisões
 
+- **Interface "caderneta" (2026-10-19):** tokens de cor em variáveis CSS, com anil como marca e verde/vermelho reservados ao sentido do dinheiro. Valores em IBM Plex Sans Condensed com algarismos tabulares, fontes empacotadas por causa da CSP. Formulários em folhas laterais e lançamento rápido global (tecla N). Filtros do extrato na URL. Detalhes em [[!Modulo Frontend (Financeiro)|!Modulo Frontend]].
+- **Ações em lote são tudo ou nada** (`/transactions/bulk/settle` e `/bulk/delete`, 2026-10-19): cada id passa por `get_or_404` e só receitas/despesas comuns entram; um item inválido recusa o lote inteiro (409), sem efetivação parcial.
 - **Saldo nunca é armazenado:** é recalculado (saldo inicial + lançamentos efetivados até hoje). Não existe saldo desatualizado nem corrida entre operações simultâneas.
 - **Um lançamento de caixa por operação de investimento** (`transactions.investment_operation_id UNIQUE`). É isso que impede contar o provento duas vezes.
 - **Custo pelo preço médio.** A TIR (XIRR) só aparece com 30 dias ou mais de histórico. Snapshots preservam as cotações do dia em que foram tirados.

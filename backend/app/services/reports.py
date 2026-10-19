@@ -45,15 +45,16 @@ def monthly_series(db: Session, start: dt.date, end: dt.date) -> list[dict]:
 def expenses_by_category(db: Session, start: dt.date, end: dt.date) -> list[dict]:
     parent = aliased(Category)
     name = func.coalesce(parent.name, Category.name, "Sem categoria")
+    cat_id = func.coalesce(parent.id, Category.id)
     rows = db.execute(
-        select(name, func.sum(Transaction.amount))
+        select(cat_id, name, func.sum(Transaction.amount))
         .select_from(Transaction)
         .outerjoin(Category, Category.id == Transaction.category_id)
         .outerjoin(parent, parent.id == Category.parent_id)
         .where(Transaction.kind == "expense", Transaction.status == "settled",
                Transaction.settle_date.between(start, end))
-        .group_by(name).order_by(func.sum(Transaction.amount).desc())).all()
-    return [{"category": n, "amount": Decimal(v)} for n, v in rows]
+        .group_by(cat_id, name).order_by(func.sum(Transaction.amount).desc())).all()
+    return [{"category_id": i, "category": n, "amount": Decimal(v)} for i, n, v in rows]
 
 
 def investment_flows(db: Session, start: dt.date, end: dt.date) -> list[dict]:
@@ -73,11 +74,16 @@ def investment_flows(db: Session, start: dt.date, end: dt.date) -> list[dict]:
     return [{"month": k, **v} for k, v in months.items()]
 
 
-def dashboard(db: Session, start: dt.date, end: dt.date) -> dict:
+def dashboard(db: Session, start: dt.date, end: dt.date, previous: tuple[dt.date, dt.date] | None = None) -> dict:
     today = dt.date.today()
     nw = networth.compute(db)
     income = _settled_sum(db, "income", start, end)
     expense = _settled_sum(db, "expense", start, end)
+    prev = None
+    if previous:
+        p_inc, p_exp = _settled_sum(db, "income", *previous), _settled_sum(db, "expense", *previous)
+        prev = {"start": previous[0], "end": previous[1], "income": money(p_inc), "expense": money(p_exp),
+                "result": money(p_inc - p_exp)}
     result = income - expense
     planned_expenses = Decimal(db.scalar(select(func.coalesce(func.sum(Transaction.amount), 0)).where(
         Transaction.kind == "expense", Transaction.status != "settled",
@@ -91,6 +97,7 @@ def dashboard(db: Session, start: dt.date, end: dt.date) -> dict:
     history_start = min(start, today.replace(day=1) - dt.timedelta(days=365)).replace(day=1)
     return {
         "period": {"start": start, "end": end},
+        "previous": prev,
         "kpis": {
             "cash_available": nw["cash_available"],
             "cash_investment_accounts": nw["cash_investment_accounts"],

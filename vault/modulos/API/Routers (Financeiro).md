@@ -9,6 +9,7 @@ Os routers ficam em `backend/app/routers/`. Cada um cria um `APIRouter(dependenc
 | `GET/POST /accounts`, `PUT/DELETE /accounts/{id}`, `POST /accounts/{id}/reconcile` | contas com saldo e pendências; conciliação |
 | `GET/POST /categories`, `PUT/DELETE /categories/{id}` | categorias e subcategorias (as de sistema são protegidas) |
 | `GET /transactions` (filtros, busca, ordenação, paginação), `GET/POST/PUT/DELETE /transactions/{id}`, `POST /transactions/{id}/duplicate` | receitas e despesas |
+| `POST /transactions/bulk/settle` (`ids`, `settle_date` opcional), `POST /transactions/bulk/delete` (`ids`) | ações em lote da tela Lançamentos: até 500 ids, **tudo ou nada**; cada id passa por `get_or_404` (id alheio = 404) e só aceita receita/despesa comum (transferência, investimento ou ajuste = 409). Os já efetivados são ignorados no `settle`. Adicionado em 2026-10-19 |
 | `GET /transactions/export`, `POST /transactions/import/preview`, `POST /transactions/import/commit` | [[CSV (Financeiro)|CSV]] (upload até 2 MB) |
 | `POST /transfers`, `GET/PUT/DELETE /transfers/{transfer_id}` | transferências |
 | `GET/POST /recurrences`, `PUT /recurrences/{id}`, `POST /recurrences/{id}/stop`, `POST /recurrences/generate` | recorrências |
@@ -43,7 +44,7 @@ Router com `dependencies=[Depends(auth.require_admin)]`: usuário comum recebe *
 | `POST /liabilities`, `PUT/DELETE /liabilities/{id}`, `GET/POST /liabilities/{id}/balances` | dívidas e histórico de saldo |
 | `GET/PUT /budgets`, `POST /budgets/copy`, `DELETE /budgets/{id}` | orçamentos |
 | `GET/POST /goals`, `PUT/DELETE /goals/{id}`, `GET/POST /goals/{id}/contributions`, `DELETE .../{cid}` | metas |
-| `GET /forecast?days=N`, `GET /audit` | previsão e auditoria |
+| `GET /forecast?days=N`, `GET /audit` | previsão e auditoria; cada registro da auditoria traz `label` (descrição, nome ou ticker tirado do próprio snapshot) para a tela Histórico |
 
 ## Período do painel
 
@@ -68,6 +69,8 @@ def period_range(period: str, start: dt.date | None, end: dt.date | None) -> tup
         return dt.date(today.year, 1, 1), dt.date(today.year, 12, 31)
     return first, month_end
 ````
+
+Para a comparação do painel, `previous_range` devolve o período imediatamente anterior de mesmo tamanho. Nos períodos de meses inteiros recua o mesmo número de **meses** (o anterior a março é fevereiro inteiro, não "31 dias antes"); no personalizado, recua o mesmo número de dias. Coberto por `tests/test_interface_api.py::test_previous_range`.
 
 > [!success] Corrigido em 2026-10-18
 > O fim do mês usava `month_ends(first, first)[0]`, que devolvia o próprio dia 1, então "mês atual" virava 01–01. Agora usa `networth.month_end`. O teste de regressão é `test_current_month_covers_whole_month`.

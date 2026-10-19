@@ -11,6 +11,8 @@ from app.db import get_db
 from app.models import TX_SIGN, Account, Category, InvestmentOperation, RecurrenceRule, Transaction, User
 from app.schemas import (
     AccountIn,
+    BulkIdsIn,
+    BulkSettleIn,
     AccountOut,
     CategoryIn,
     CategoryOut,
@@ -260,6 +262,16 @@ async def import_commit(file: UploadFile = File(...), default_account_id: int | 
                         include_duplicates: bool = Form(False), db: Session = Depends(get_db),
                         user: User = Depends(current_user)):
     return csv_io.commit(db, await _read_upload(file), default_account_id, include_duplicates, user.id)
+
+
+@router.post("/transactions/bulk/settle")
+def bulk_settle(data: BulkSettleIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    return {"changed": ledger.settle_transactions(db, data.ids, data.settle_date, user.id)}
+
+
+@router.post("/transactions/bulk/delete")
+def bulk_delete(data: BulkIdsIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    return {"deleted": ledger.delete_transactions(db, data.ids, user.id)}
 
 
 @router.get("/transactions/{tx_id}", response_model=TransactionOut)

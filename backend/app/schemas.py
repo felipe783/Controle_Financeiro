@@ -188,6 +188,14 @@ class TransferIn(_Clean):
         return self
 
 
+class BulkIdsIn(BaseModel):
+    ids: Annotated[list[int], Field(min_length=1, max_length=500)]
+
+
+class BulkSettleIn(BulkIdsIn):
+    settle_date: dt.date | None = None
+
+
 class DuplicateIn(BaseModel):
     date: dt.date | None = None
     status: Literal["planned", "pending", "settled"] | None = None

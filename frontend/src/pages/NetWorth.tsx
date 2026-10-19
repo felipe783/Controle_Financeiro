@@ -1,10 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
-import { CartesianGrid, Legend, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
+import { Camera, Pencil, Plus, Trash2 } from "lucide-react";
+import { useState, type FormEvent, type ReactNode } from "react";
+import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../api";
-import { axis, brlShort, ChartBox, INCOME, moneyFormatter, NEUTRAL, tooltipStyle } from "../components/charts";
-import { Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, FormActions, inputCls, Loading, Modal, MoneyInput, PageHeader, Stat, Table, td, th, toneOf } from "../components/ui";
-import { brl, date, parseDecimal, todayISO, toNum } from "../format";
+import { brlShort, ChartBox, Legend, moneyFormatter, useChartTheme } from "../components/charts";
+import {
+  Button, ConfirmDialog, cx, Empty, ErrorBox, Field, inputCls, Loading, Money, MoneyInput, Notice, PageHeader, Panel,
+  RowMenu, Sheet, SheetActions, Table, Tag, td, th,
+} from "../components/ui";
+import { date, monthLabel, parseDecimal, todayISO, toNum } from "../format";
 import { useSave } from "../hooks";
 
 type Liability = { id: number; name: string; kind: string | null; archived: boolean; notes: string | null;
@@ -18,85 +22,147 @@ type Point = { date: string; net: string; gross: string; cash: string; investmen
 export default function NetWorth() {
   const nw = useQuery({ queryKey: ["networth"], queryFn: () => api.get<NW>("/networth") });
   const hist = useQuery({ queryKey: ["networth-history"], queryFn: () => api.get<Point[]>("/networth/history") });
-  const snap = useSave(() => api.post("/networth/snapshot"), "Snapshot de hoje registrado.");
+  const snap = useSave(() => api.post("/networth/snapshot"), "Retrato de hoje registrado.");
   const [newLia, setNewLia] = useState(false);
   const [balanceFor, setBalanceFor] = useState<Liability | null>(null);
   const [delLia, setDelLia] = useState<Liability | null>(null);
   const removeLia = useSave((l: Liability) => api.del(`/liabilities/${l.id}`), "Dívida removida.", () => setDelLia(null));
   const d = nw.data;
-  const series = (hist.data ?? []).map((p) => ({ name: date(p.date) + (p.estimate ? " (est.)" : ""),
-    "Líquido": toNum(p.net), "Caixa": toNum(p.cash), "Investimentos": toNum(p.investments), "Dívidas": toNum(p.liabilities) }));
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Patrimônio" actions={<>
-          <Button variant="secondary" onClick={() => snap.mutate(undefined)}>Registrar snapshot de hoje</Button>
-          <Button onClick={() => setNewLia(true)}>+ Dívida / obrigação</Button>
-      </>} />
-      <ErrorBox error={nw.error} />
-      {nw.isLoading && <Loading />}
+    <div>
+      <PageHeader title="Patrimônio" context="O que você tem menos o que você deve, hoje e mês a mês."
+        actions={<>
+          <Button variant="secondary" icon={Camera} disabled={snap.isPending} onClick={() => snap.mutate(undefined)}
+            title="Grava os valores de hoje no histórico (o servidor também faz isso todo dia)">Registrar retrato de hoje</Button>
+          <Button icon={Plus} onClick={() => setNewLia(true)}>Nova dívida</Button>
+        </>} />
+      <ErrorBox error={nw.error} className="mb-4" />
+      {nw.isLoading && <Loading rows={6} />}
       {d && (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Stat label="Dinheiro disponível" value={brl(d.cash_available)} hint="Contas que não são de investimento" />
-            <Stat label="Caixa em contas de investimento" value={brl(d.cash_investment_accounts)} />
-            <Stat label="Investimentos (valor estimado)" value={brl(d.investments_market_value)}
-              hint={`Custo: ${brl(d.invested_cost)}`} />
-            <Stat label="Patrimônio bruto (ativos)" value={brl(d.gross)} />
-            <Stat label="Dívidas e obrigações" value={brl(d.liabilities)} tone={toNum(d.liabilities) ? "neg" : undefined} />
-            <Stat label="Patrimônio líquido" value={brl(d.net)} tone={toneOf(d.net)} hint="Ativos − passivos" />
-          </div>
-          <p className="text-xs text-slate-600 dark:text-slate-400">
-            O caixa parado na corretora conta uma única vez, como dinheiro; comprar um ativo apenas troca dinheiro por
-            investimento. Metas não somam ao patrimônio (são destinações de valores existentes).
-          </p>
-          {d.warnings.length > 0 && <ErrorBox error={d.warnings.join(" · ")} />}
+          {d.warnings.length > 0 && <Notice tone="warn" className="mb-4">{d.warnings.join(" ")}</Notice>}
+          {/* Balanço: ativos de um lado, passivos do outro e o líquido como resultado. */}
+          <section aria-label="Balanço patrimonial" className="rounded-md border border-rule bg-sheet">
+            <div className="grid md:grid-cols-2 md:divide-x md:divide-rule">
+              <div className="p-5 sm:p-6">
+                <h2 className="text-[15px] font-semibold">O que você tem</h2>
+                <dl className="mt-3 divide-y divide-rule/70">
+                  <BalanceLine label="Dinheiro em conta" note="Contas correntes, poupança e dinheiro"><Money value={d.cash_available} /></BalanceLine>
+                  <BalanceLine label="Parado em corretoras" note="Saldo em contas de investimento"><Money value={d.cash_investment_accounts} /></BalanceLine>
+                  <BalanceLine label="Investimentos" note={<>Valor de mercado; custo <Money value={d.invested_cost} size="sm" tone="muted" /></>}>
+                    <Money value={d.investments_market_value} /></BalanceLine>
+                </dl>
+                <div className="mt-2 flex items-baseline justify-between border-t-2 border-ink/80 pt-3">
+                  <span className="font-semibold">Total de bens</span><Money value={d.gross} size="lg" />
+                </div>
+              </div>
+              <div className="border-t border-rule p-5 sm:p-6 md:border-t-0">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-[15px] font-semibold">O que você deve</h2>
+                  <Button size="sm" variant="ghost" icon={Plus} onClick={() => setNewLia(true)}>Adicionar</Button>
+                </div>
+                {d.liability_items.length === 0 ? (
+                  <Empty compact>Nenhuma dívida cadastrada. Financiamentos e saldos de cartão entram aqui.</Empty>
+                ) : (
+                  <ul className="mt-3 divide-y divide-rule/70">
+                    {d.liability_items.map((l) => (
+                      <li key={l.id} className="flex items-center gap-3 py-2.5">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2"><span className="truncate">{l.name}</span>{l.archived && <Tag>Arquivada</Tag>}</div>
+                          <div className="text-xs text-ink-soft">{[l.kind, l.reference_date && `saldo de ${date(l.reference_date)}`].filter(Boolean).join(" · ")}</div>
+                        </div>
+                        <Money value={l.balance} />
+                        <RowMenu label={`Ações de ${l.name}`} items={[
+                          { label: "Atualizar saldo", icon: Pencil, onSelect: () => setBalanceFor(l) },
+                          { label: "Excluir", icon: Trash2, danger: true, onSelect: () => setDelLia(l) },
+                        ]} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-2 flex items-baseline justify-between border-t-2 border-ink/80 pt-3">
+                  <span className="font-semibold">Total de dívidas</span><Money value={d.liabilities} size="lg" className={toNum(d.liabilities) ? "text-neg" : ""} />
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-rule bg-sunk px-5 py-4 sm:px-6">
+              <div>
+                <div className="font-semibold">Patrimônio líquido</div>
+                <div className="text-xs text-ink-soft">Bens menos dívidas. Metas não entram: são destinos para dinheiro que já está nas contas.</div>
+              </div>
+              <Money value={d.net} size="xl" className={toNum(d.net) < 0 ? "text-neg" : ""} />
+            </div>
+          </section>
         </>
       )}
-      <Card title="Evolução do patrimônio">
-        <ChartBox empty={!series.some((p) => p["Líquido"] || p["Caixa"] || p["Investimentos"] || p["Dívidas"])} label="Linhas de patrimônio líquido, caixa, investimentos e dívidas" height={300}>
-          <LineChart data={series}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#94a3b833" />
-            <XAxis dataKey="name" tick={axis} /><YAxis tick={axis} tickFormatter={brlShort} width={80} />
-            <Tooltip formatter={moneyFormatter} {...tooltipStyle} /><Legend />
-            <Line dataKey="Líquido" stroke={INCOME} strokeWidth={2} />
-            <Line dataKey="Caixa" stroke={NEUTRAL} />
-            <Line dataKey="Investimentos" stroke="#7c3aed" />
-            <Line dataKey="Dívidas" stroke="#be123c" />
+
+      <History points={hist.data ?? []} loading={hist.isLoading} />
+
+      <Sheet open={newLia} onClose={() => setNewLia(false)} title="Nova dívida"
+        description="Financiamento, empréstimo, saldo do cartão… O saldo devedor é atualizado por você."
+        footer={<SheetActions form="lia-form" onCancel={() => setNewLia(false)} />}>
+        {newLia && <LiabilityForm onDone={() => setNewLia(false)} />}
+      </Sheet>
+      <Sheet open={!!balanceFor} onClose={() => setBalanceFor(null)} title={`Saldo de ${balanceFor?.name ?? ""}`}
+        footer={<SheetActions form="balance-form" onCancel={() => setBalanceFor(null)} />}>
+        {balanceFor && <BalanceForm liability={balanceFor} onDone={() => setBalanceFor(null)} />}
+      </Sheet>
+      <ConfirmDialog open={!!delLia} title={`Excluir ${delLia?.name ?? "dívida"}`} onClose={() => setDelLia(null)} busy={removeLia.isPending}
+        onConfirm={() => delLia && removeLia.mutate(delLia)}
+        message="O histórico de saldos desta dívida também será apagado. Para guardar o histórico, registre saldo zero em vez de excluir." />
+    </div>
+  );
+}
+
+function BalanceLine({ label, note, children }: { label: string; note?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 py-2.5">
+      <div className="min-w-0"><dt>{label}</dt>{note && <dd className="text-xs text-ink-soft">{note}</dd>}</div>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
+function History({ points, loading }: { points: Point[]; loading: boolean }) {
+  const t = useChartTheme();
+  const series = points.map((p) => ({ name: date(p.date) + (p.estimate ? " (estimado)" : ""), short: monthLabel(p.date.slice(0, 7)),
+    "Líquido": toNum(p.net), "Dinheiro": toNum(p.cash), "Investimentos": toNum(p.investments), "Dívidas": toNum(p.liabilities) }));
+  const colors = { "Líquido": t.brand, "Dinheiro": t.series[1], "Investimentos": t.series[2], "Dívidas": t.expense };
+  return (
+    <Panel title="Mês a mês" className="mt-4"
+      aside={<Legend items={Object.entries(colors).map(([label, color]) => ({ label, color }))} />}>
+      {loading ? <Loading /> : (
+        <ChartBox empty={!series.some((p) => p["Líquido"] || p["Dinheiro"] || p["Investimentos"] || p["Dívidas"])} height={300}
+          label="Linhas mensais de patrimônio líquido, dinheiro, investimentos e dívidas"
+          table={
+            <Table minWidth="min-w-[520px]">
+              <thead><tr><th className={th}>Data</th><th className={cx(th, "text-right")}>Dinheiro</th><th className={cx(th, "text-right")}>Investimentos</th>
+                <th className={cx(th, "text-right")}>Dívidas</th><th className={cx(th, "text-right")}>Líquido</th></tr></thead>
+              <tbody>{points.map((p) => (
+                <tr key={p.date}><td className={cx(td, "num")}>{date(p.date)}{p.estimate && <span className="text-ink-soft"> (estimado)</span>}</td>
+                  <td className={cx(td, "text-right")}><Money value={p.cash} size="sm" /></td>
+                  <td className={cx(td, "text-right")}><Money value={p.investments} size="sm" /></td>
+                  <td className={cx(td, "text-right")}><Money value={p.liabilities} size="sm" /></td>
+                  <td className={cx(td, "text-right")}><Money value={p.net} size="sm" /></td></tr>))}</tbody>
+            </Table>
+          }>
+          <LineChart data={series} margin={{ left: 0, right: 8, top: 8 }}>
+            <CartesianGrid {...t.grid} />
+            <XAxis dataKey="short" tick={t.axis} tickLine={false} axisLine={{ stroke: t.rule }} minTickGap={16} />
+            <YAxis tick={t.axis} tickFormatter={brlShort} width={56} tickLine={false} axisLine={false} />
+            <Tooltip formatter={moneyFormatter} labelFormatter={(_, p) => p?.[0]?.payload?.name ?? ""} {...t.tooltip} />
+            {Object.entries(colors).map(([k, c]) => (
+              <Line key={k} dataKey={k} stroke={c} strokeWidth={k === "Líquido" ? 2.5 : 1.5} dot={false}
+                activeDot={{ r: 4, strokeWidth: 2, stroke: t.sheet }} />
+            ))}
           </LineChart>
         </ChartBox>
-        <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
-          Snapshots são registrados diariamente pelo worker e preservam as cotações da data. Pontos “(est.)” são fins de
-          mês sem snapshot, estimados com lançamentos e cotações conhecidas até aquela data.
-        </p>
-      </Card>
-      <Card title="Dívidas e obrigações">
-        {!d?.liability_items.length ? <Empty>Nenhuma dívida cadastrada.</Empty> : (
-          <Table>
-            <thead><tr><th className={th}>Nome</th><th className={th}>Tipo</th><th className={`${th} text-right`}>Saldo devedor</th>
-              <th className={th}>Atualizado em</th><th className={th}><span className="sr-only">Ações</span></th></tr></thead>
-            <tbody>{d.liability_items.map((l) => (
-              <tr key={l.id}><td className={td}>{l.name} {l.archived && <Badge>Arquivada</Badge>}</td>
-                <td className={td}>{l.kind ?? "—"}</td>
-                <td className={`${td} text-right tabular-nums`}>{brl(l.balance)}</td>
-                <td className={td}>{date(l.reference_date)}</td>
-                <td className={`${td} text-right`}>
-                  <Button variant="ghost" onClick={() => setBalanceFor(l)}>Atualizar saldo</Button>
-                  <Button variant="danger-ghost" onClick={() => setDelLia(l)}>Excluir</Button></td></tr>))}
-            </tbody>
-          </Table>
-        )}
-      </Card>
-      <Modal open={newLia} onClose={() => setNewLia(false)} title="Nova dívida / obrigação">
-        {newLia && <LiabilityForm onDone={() => setNewLia(false)} />}
-      </Modal>
-      <Modal open={!!balanceFor} onClose={() => setBalanceFor(null)} title={`Saldo de ${balanceFor?.name ?? ""}`}>
-        {balanceFor && <BalanceForm liability={balanceFor} onDone={() => setBalanceFor(null)} />}
-      </Modal>
-      <ConfirmDialog open={!!delLia} title="Excluir dívida" onClose={() => setDelLia(null)} busy={removeLia.isPending}
-        onConfirm={() => delLia && removeLia.mutate(delLia)}
-        message="O histórico de saldos desta dívida também será removido. Para preservá-lo, prefira zerar o saldo." />
-    </div>
+      )}
+      <p className="mt-3 text-xs text-ink-soft">
+        Os retratos diários guardam as cotações do dia. Meses sem retrato são estimados com os lançamentos e cotações conhecidos até a data.
+      </p>
+    </Panel>
   );
 }
 
@@ -111,16 +177,15 @@ function LiabilityForm({ onDone }: { onDone: () => void }) {
     save.mutate({ name: f.name, kind: f.kind || null, balance: b, reference_date: f.reference_date, notes: f.notes || null });
   }
   return (
-    <form onSubmit={submit} className="grid gap-3">
-      <Field label="Nome"><input className={inputCls} value={f.name} required maxLength={120}
+    <form id="lia-form" onSubmit={submit} className="grid gap-4">
+      <Field label="Nome"><input className={inputCls} value={f.name} required maxLength={120} autoFocus
         onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-      <Field label="Tipo"><input className={inputCls} value={f.kind} maxLength={50} placeholder="Financiamento, cartão…"
+      <Field label="Tipo" hint="Opcional."><input className={inputCls} value={f.kind} maxLength={50} placeholder="Financiamento, cartão, empréstimo…"
         onChange={(e) => setF({ ...f, kind: e.target.value })} /></Field>
-      <Field label="Saldo devedor atual (R$)"><MoneyInput value={f.balance} required
-        onChange={(v) => setF({ ...f, balance: v })} /></Field>
-      <Field label="Data de referência"><input type="date" className={inputCls} value={f.reference_date} required
+      <Field label="Saldo devedor"><MoneyInput value={f.balance} required onChange={(v) => setF({ ...f, balance: v })} /></Field>
+      <Field label="Saldo em"><input type="date" className={inputCls} value={f.reference_date} required
         onChange={(e) => setF({ ...f, reference_date: e.target.value })} /></Field>
-      <ErrorBox error={error} /><FormActions onCancel={onDone} busy={save.isPending} />
+      <ErrorBox error={error} />
     </form>
   );
 }
@@ -138,18 +203,26 @@ function BalanceForm({ liability, onDone }: { liability: Liability; onDone: () =
     save.mutate({ balance: b, reference_date: f.reference_date, note: f.note || null });
   }
   return (
-    <form onSubmit={submit} className="grid gap-3">
-      <Field label="Novo saldo devedor (R$)"><MoneyInput value={f.balance} required onChange={(v) => setF({ ...f, balance: v })} /></Field>
-      <Field label="Data de referência"><input type="date" className={inputCls} value={f.reference_date} required
-        onChange={(e) => setF({ ...f, reference_date: e.target.value })} /></Field>
-      <Field label="Observação"><input className={inputCls} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
-      <ErrorBox error={error} />
-      <FormActions onCancel={onDone} busy={save.isPending} />
-      <div className="text-sm">
-        <div className="mb-1 font-medium">Histórico</div>
-        {hist.data?.map((h) => <div key={h.id} className="flex justify-between border-b border-slate-100 py-1 dark:border-slate-800">
-          <span>{date(h.reference_date)}</span><span className="tabular-nums">{brl(h.balance)}</span></div>)}
-      </div>
-    </form>
+    <div className="space-y-6">
+      <form id="balance-form" onSubmit={submit} className="grid gap-4">
+        <Field label="Novo saldo devedor"><MoneyInput value={f.balance} required autoFocus onChange={(v) => setF({ ...f, balance: v })} /></Field>
+        <Field label="Saldo em"><input type="date" className={inputCls} value={f.reference_date} required
+          onChange={(e) => setF({ ...f, reference_date: e.target.value })} /></Field>
+        <Field label="Observação"><input className={inputCls} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></Field>
+        <ErrorBox error={error} />
+      </form>
+      <section>
+        <h3 className="mb-2 text-sm font-medium">Histórico de saldos</h3>
+        {!hist.data?.length ? <p className="text-sm text-ink-soft">Nenhum saldo anterior.</p> : (
+          <ul className="divide-y divide-rule/70 text-sm">
+            {hist.data.map((h) => (
+              <li key={h.id} className="flex items-baseline justify-between py-2">
+                <span className="num text-ink-soft">{date(h.reference_date)}{h.note && <span className="ml-2 text-xs">{h.note}</span>}</span>
+                <Money value={h.balance} size="sm" />
+              </li>))}
+          </ul>
+        )}
+      </section>
+    </div>
   );
 }

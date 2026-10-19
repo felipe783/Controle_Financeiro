@@ -151,6 +151,41 @@ def delete_transaction(db: Session, tx_id: int, user_id: int | None = None) -> N
     db.commit()
 
 
+def _bulk_targets(db: Session, ids: list[int]) -> list[Transaction]:
+    """Busca cada id pelo RLS (id alheio = 404) e recusa o lote inteiro se algum não for receita/despesa comum."""
+    txs = [get_or_404(db, Transaction, i, "Lançamento") for i in dict.fromkeys(ids)]
+    for tx in txs:
+        _editable(tx)
+    return txs
+
+
+def settle_transactions(db: Session, ids: list[int], on: dt.date | None, user_id: int | None = None) -> int:
+    """Marca vários lançamentos como pagos/recebidos de uma vez. Tudo ou nada; os já efetivados são ignorados."""
+    changed = 0
+    for tx in _bulk_targets(db, ids):
+        if tx.status == "settled":
+            continue
+        settle_date = on or today()
+        _check_settle_date(tx.account, settle_date)
+        before = snapshot(tx)
+        tx.status, tx.settle_date = "settled", settle_date
+        db.flush()
+        audit(db, "transaction", tx.id, "update", before=before, after=snapshot(tx), user_id=user_id)
+        changed += 1
+    db.commit()
+    return changed
+
+
+def delete_transactions(db: Session, ids: list[int], user_id: int | None = None) -> int:
+    """Exclui vários lançamentos de receita/despesa numa única transação (tudo ou nada)."""
+    txs = _bulk_targets(db, ids)
+    for tx in txs:
+        audit(db, "transaction", tx.id, "delete", before=snapshot(tx), user_id=user_id)
+        db.delete(tx)
+    db.commit()
+    return len(txs)
+
+
 def duplicate_transaction(db: Session, tx_id: int, new_date: dt.date | None, status: str | None,
                           user_id: int | None = None) -> Transaction:
     src = get_or_404(db, Transaction, tx_id, "Lançamento")

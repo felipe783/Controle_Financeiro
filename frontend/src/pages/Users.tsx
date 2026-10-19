@@ -1,7 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { Plus, ShieldCheck, ShieldOff, UserCheck, UserX } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
-import { Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Field, inputCls, Loading, PageHeader, Table, td, th } from "../components/ui";
+import {
+  Button, Check, ConfirmDialog, cx, Empty, ErrorBox, Field, inputCls, Loading, PageHeader, RowMenu, Sheet, SheetActions,
+  Status, Table, Tag, td, th,
+} from "../components/ui";
 import { dateTime } from "../format";
 import { useSave } from "../hooks";
 import type { Me, UserRow } from "../types";
@@ -11,64 +15,72 @@ const USERNAME = /^[A-Za-z0-9._-]{3,64}$/;
 
 function passwordProblem(password: string, username: string): string | null {
   if (password.length < 12) return "A senha deve ter pelo menos 12 caracteres.";
-  if (password.toLowerCase() === username.toLowerCase() || new Set(password).size < 5) return "Senha fraca demais.";
+  if (password.toLowerCase() === username.toLowerCase() || new Set(password).size < 5) return "Senha fraca demais: varie mais os caracteres.";
   return null;
 }
 
+type Pending = { user: UserRow; change: { is_admin: boolean; is_active: boolean }; label: string };
+
 export default function Users({ me }: { me: Me }) {
   const users = useQuery({ queryKey: ["users"], queryFn: () => api.get<UserRow[]>("/users") });
-  const [pending, setPending] = useState<{ user: UserRow; change: { is_admin: boolean; is_active: boolean }; label: string } | null>(null);
-  const update = useSave((p: NonNullable<typeof pending>) => api.put(`/users/${p.user.id}`, p.change),
-    "Usuário atualizado.", () => setPending(null));
+  const [creating, setCreating] = useState(false);
+  const [pending, setPending] = useState<Pending | null>(null);
+  const update = useSave((p: Pending) => api.put(`/users/${p.user.id}`, p.change), "Usuário atualizado.", () => setPending(null));
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader title="Usuários"
-        description="Cada usuário tem os próprios dados financeiros, que ninguém mais vê, nem o administrador. Aqui você cria e gerencia os acessos." />
-      <Card title="Novo usuário"><NewUserForm /></Card>
-      <Card title="Usuários cadastrados">
-        <ErrorBox error={users.error} />
-        {users.isLoading ? <Loading /> : !users.data?.length ? <Empty>Nenhum usuário.</Empty> : (
-          <Table>
-            <thead><tr><th className={th}>Usuário</th><th className={th}>Papel</th><th className={th}>Situação</th>
-              <th className={th}>Criado em</th><th className={th}><span className="sr-only">Ações</span></th></tr></thead>
+        context="Cada pessoa tem dados financeiros próprios, que ninguém mais vê, nem o administrador. Aqui você só gerencia os acessos."
+        actions={<Button icon={Plus} onClick={() => setCreating(true)}>Novo usuário</Button>} />
+      <ErrorBox error={users.error} className="mb-4" />
+      <div className="rounded-md border border-rule bg-sheet">
+        {users.isLoading ? <div className="p-5"><Loading /></div> : !users.data?.length ? <Empty>Nenhum usuário.</Empty> : (
+          <Table minWidth="min-w-0">
+            <thead><tr><th className={th}>Usuário</th><th className={cx(th, "hidden sm:table-cell")}>Situação</th>
+              <th className={cx(th, "hidden md:table-cell")}>Criado em</th><th className={cx(th, "w-12")}><span className="sr-only">Ações</span></th></tr></thead>
             <tbody>{users.data.map((u) => {
               const self = u.id === me.id;
               return (
-                <tr key={u.id} className={u.is_active ? "" : "opacity-60"}>
-                  <td className={td}><span className="font-medium">{u.username}</span>{self && <span className="text-slate-600 dark:text-slate-400"> (você)</span>}</td>
-                  <td className={td}><Badge tone={u.is_admin ? "blue" : "slate"}>{u.is_admin ? "Administrador" : "Usuário"}</Badge></td>
-                  <td className={td}><Badge tone={u.is_active ? "green" : "red"}>{u.is_active ? "Ativo" : "Desativado"}</Badge></td>
-                  <td className={td}>{dateTime(u.created_at)}</td>
-                  <td className={`${td} whitespace-nowrap text-right`}>{!self && <>
-                    <Button variant="ghost" onClick={() => setPending({ user: u, label: u.is_admin ? "Remover administrador" : "Tornar administrador",
-                      change: { is_admin: !u.is_admin, is_active: u.is_active } })}>
-                      {u.is_admin ? "Remover admin" : "Tornar admin"}</Button>
-                    <Button variant={u.is_active ? "danger-ghost" : "ghost"}
-                      onClick={() => setPending({ user: u, label: u.is_active ? "Desativar" : "Reativar",
-                        change: { is_admin: u.is_admin, is_active: !u.is_active } })}>
-                      {u.is_active ? "Desativar" : "Reativar"}</Button></>}</td>
+                <tr key={u.id} className={u.is_active ? "" : "opacity-70"}>
+                  <td className={td}>
+                    <div className="flex items-center gap-2"><span className="font-medium">{u.username}</span>
+                      {u.is_admin && <Tag>Administrador</Tag>}{self && <span className="text-xs text-ink-soft">você</span>}</div>
+                    <div className="sm:hidden"><Status tone={u.is_active ? "pos" : "neg"}>{u.is_active ? "Ativo" : "Desativado"}</Status></div>
+                  </td>
+                  <td className={cx(td, "hidden sm:table-cell")}><Status tone={u.is_active ? "pos" : "neg"}>{u.is_active ? "Ativo" : "Desativado"}</Status></td>
+                  <td className={cx(td, "num hidden text-ink-soft md:table-cell")}>{dateTime(u.created_at)}</td>
+                  <td className={cx(td, "text-right")}>{!self && <RowMenu label={`Ações de ${u.username}`} items={[
+                    { label: u.is_admin ? "Remover administrador" : "Tornar administrador", icon: u.is_admin ? ShieldOff : ShieldCheck,
+                      onSelect: () => setPending({ user: u, label: u.is_admin ? "Remover administrador" : "Tornar administrador",
+                        change: { is_admin: !u.is_admin, is_active: u.is_active } }) },
+                    { label: u.is_active ? "Desativar acesso" : "Reativar acesso", icon: u.is_active ? UserX : UserCheck, danger: u.is_active,
+                      onSelect: () => setPending({ user: u, label: u.is_active ? "Desativar acesso" : "Reativar acesso",
+                        change: { is_admin: u.is_admin, is_active: !u.is_active } }) },
+                  ]} />}</td>
                 </tr>
               );
             })}</tbody>
           </Table>
         )}
-      </Card>
+      </div>
+      <Sheet open={creating} onClose={() => setCreating(false)} title="Novo usuário"
+        footer={<SheetActions form="user-form" label="Criar usuário" busyLabel="Criando…" onCancel={() => setCreating(false)} />}>
+        {creating && <NewUserForm onDone={() => setCreating(false)} />}
+      </Sheet>
       <ConfirmDialog open={!!pending} title={`${pending?.label ?? ""}: ${pending?.user.username ?? ""}`}
-        confirmLabel={pending?.label ?? "Confirmar"} busy={update.isPending} onClose={() => setPending(null)}
-        onConfirm={() => pending && update.mutate(pending)}
+        confirmLabel={pending?.label ?? "Confirmar"} tone={pending && !pending.change.is_active ? "danger" : "primary"}
+        busy={update.isPending} onClose={() => setPending(null)} onConfirm={() => pending && update.mutate(pending)}
         message={pending && !pending.change.is_active
-          ? "O usuário não poderá mais entrar e as sessões abertas serão encerradas imediatamente."
-          : "A alteração vale imediatamente, já na próxima ação do usuário."} />
+          ? "A pessoa não consegue mais entrar e as sessões abertas dela terminam na hora."
+          : "A mudança vale a partir da próxima ação dessa pessoa."} />
     </div>
   );
 }
 
-function NewUserForm() {
-  const empty = { username: "", password: "", confirm: "", is_admin: false };
-  const [f, setF] = useState(empty);
+function NewUserForm({ onDone }: { onDone: () => void }) {
+  const [f, setF] = useState({ username: "", password: "", confirm: "", is_admin: false });
   const [error, setError] = useState<string | null>(null);
-  const create = useSave((b: unknown) => api.post("/users", b), "Usuário criado.", () => setF(empty));
+  const create = useSave((b: unknown) => api.post("/users", b), "Usuário criado.", onDone);
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -82,27 +94,21 @@ function NewUserForm() {
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" noValidate>
+    <form id="user-form" onSubmit={submit} className="grid gap-4" noValidate>
       <Field label="Nome de usuário" hint="3 a 64 caracteres: letras, números, . - _">
-        <input className={inputCls} value={f.username} autoComplete="off" required maxLength={64}
+        <input className={inputCls} value={f.username} autoComplete="off" required maxLength={64} autoFocus
           onChange={(e) => setF({ ...f, username: e.target.value })} />
       </Field>
-      <Field label="Senha" hint="Mínimo de 12 caracteres.">
+      <Field label="Senha" hint="Pelo menos 12 caracteres.">
         <input className={inputCls} type="password" autoComplete="new-password" value={f.password} required
           minLength={12} maxLength={256} onChange={(e) => setF({ ...f, password: e.target.value })} />
       </Field>
-      <Field label="Confirmar senha">
+      <Field label="Repita a senha">
         <input className={inputCls} type="password" autoComplete="new-password" value={f.confirm} required
           onChange={(e) => setF({ ...f, confirm: e.target.value })} />
       </Field>
-      <div className="flex flex-col justify-end gap-3">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={f.is_admin} onChange={(e) => setF({ ...f, is_admin: e.target.checked })} />
-          Administrador
-        </label>
-        <Button type="submit" disabled={create.isPending}>{create.isPending ? "Criando…" : "Criar usuário"}</Button>
-      </div>
-      <div className="sm:col-span-2 lg:col-span-4"><ErrorBox error={error} /></div>
+      <Check checked={f.is_admin} onChange={(v) => setF({ ...f, is_admin: v })}>Administrador (pode gerenciar acessos)</Check>
+      <ErrorBox error={error} />
     </form>
   );
 }
