@@ -1,6 +1,8 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, Copy, Download, Pencil, Plus, Search, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useEntry } from "../components/TransactionForms";
@@ -10,6 +12,7 @@ import {
 } from "../components/ui";
 import { addDaysISO, capitalize, date, dayLabel, isInflow, KIND_LABEL, todayISO, toNum } from "../format";
 import { categoryOptions, useAccounts, useCategories, useSave, useSettle } from "../hooks";
+import { dur, ease, spring } from "../motion";
 import type { Transaction, TransactionPage } from "../types";
 
 const DEFAULTS = { q: "", start: "", end: "", kind: "", status: "", account_id: "", category_id: "", overdue: "",
@@ -135,8 +138,11 @@ export default function Transactions() {
             onClick={() => setShowFilters(!showFilters)}>Filtros{chips.length ? ` (${chips.length})` : ""}</Button>
         </div>
 
+        <AnimatePresence initial={false}>
         {showFilters && (
-          <div id="filtros" className="grid gap-3 rounded-md border border-rule bg-sheet p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <motion.div key="f" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: dur.slow, ease: ease.out }} className="overflow-hidden">
+          <div id="filtros" className="grid gap-3 rounded-lg border border-rule bg-sheet p-4 shadow-lift sm:grid-cols-2 lg:grid-cols-4">
             <Field label="De"><input type="date" className={inputCls} value={f.start} onChange={(e) => update({ start: e.target.value })} /></Field>
             <Field label="Até"><input type="date" className={inputCls} value={f.end} onChange={(e) => update({ end: e.target.value })} /></Field>
             <Field label="Tipo">
@@ -167,17 +173,23 @@ export default function Transactions() {
             </Field>
             <CheckBox className="self-end" checked={!!f.overdue} onChange={(v) => update({ overdue: v ? "1" : "" })}>Só despesas atrasadas</CheckBox>
           </div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {chips.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
+            <AnimatePresence initial={false} mode="popLayout">
             {chips.map(([k, label]) => (
-              <button key={k} type="button" onClick={() => update(k === "start" ? { start: "", end: "" } : { [k]: "" })}
-                className={cx("inline-flex min-h-8 items-center gap-1.5 rounded-full border border-rule-strong bg-sheet pl-3 pr-2 text-[13px]",
-                  "hover:border-ink-faint", focusRing)} aria-label={`Remover filtro ${label}`}>
+              <motion.button layout key={k} type="button" onClick={() => update(k === "start" ? { start: "", end: "" } : { [k]: "" })}
+                initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1, transition: spring.snappy }}
+                exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.12 } }}
+                className={cx("inline-flex min-h-8 items-center gap-1.5 rounded-full border border-anil/30 bg-anil-wash pl-3 pr-2 text-[13px] text-ink",
+                  "hover:border-anil/60", focusRing)} aria-label={`Remover filtro ${label}`}>
                 {label}<X aria-hidden="true" className="size-3.5 text-ink-soft" />
-              </button>
+              </motion.button>
             ))}
+            </AnimatePresence>
             <button type="button" className={cx("rounded px-1 text-[13px] font-medium text-anil hover:underline", focusRing)}
               onClick={() => setParams({}, { replace: true })}>Limpar tudo</button>
           </div>
@@ -186,16 +198,19 @@ export default function Transactions() {
 
       {/* Totais do filtro atual */}
       {p && (
-        <dl className="mt-5 flex flex-wrap items-end gap-x-8 gap-y-3 border-b border-rule pb-4">
-          <div><dt className="text-[13px] text-ink-soft">Entradas</dt><dd><Money value={p.sum_in} size="lg" flow="in" /></dd></div>
-          <div><dt className="text-[13px] text-ink-soft">Saídas</dt><dd><Money value={p.sum_out} size="lg" flow="out" /></dd></div>
-          <div><dt className="text-[13px] text-ink-soft">Saldo do filtro</dt><dd><Money value={toNum(p.sum_in) - toNum(p.sum_out)} size="lg" tone="signed" /></dd></div>
-          <div className="ml-auto text-sm text-ink-soft">{p.total} {p.total === 1 ? "lançamento" : "lançamentos"}</div>
-        </dl>
+        <div className="mt-5">
+          <dl className="flex flex-wrap items-end gap-x-8 gap-y-3">
+            <div><dt className="text-[13px] text-ink-soft">Entradas</dt><dd><Money value={p.sum_in} size="lg" flow="in" animate /></dd></div>
+            <div><dt className="text-[13px] text-ink-soft">Saídas</dt><dd><Money value={p.sum_out} size="lg" flow="out" animate /></dd></div>
+            <div><dt className="text-[13px] text-ink-soft">Saldo do filtro</dt><dd><Money value={toNum(p.sum_in) - toNum(p.sum_out)} size="lg" tone="signed" animate /></dd></div>
+            <div className="ml-auto text-sm text-ink-soft">{p.total} {p.total === 1 ? "lançamento" : "lançamentos"}</div>
+          </dl>
+          <FlowBar sumIn={toNum(p.sum_in)} sumOut={toNum(p.sum_out)} />
+        </div>
       )}
 
       <ErrorBox error={list.error} className="mt-4" />
-      <div className={cx("mt-4 rounded-md border border-rule bg-sheet transition-opacity", list.isFetching && !list.isLoading && "opacity-70")}>
+      <div className={cx("mt-4 rounded-lg border border-rule bg-sheet shadow-lift transition-opacity", list.isFetching && !list.isLoading && "opacity-70")}>
         {list.isLoading ? <div className="p-5"><Loading rows={8} /></div> : items.length === 0 ? (
           <Empty title={chips.length || f.q ? "Nada encontrado com esses filtros" : "Nenhum lançamento ainda"}
             action={chips.length || f.q
@@ -204,16 +219,16 @@ export default function Transactions() {
             {chips.length || f.q ? "Tente outro período ou remova algum filtro." : "Registre receitas, despesas e transferências para montar seu extrato."}
           </Empty>
         ) : (
-          <Table minWidth="min-w-0">
+          <table className="w-full table-fixed text-left text-sm">
             <thead>
               <tr>
-                <th className={cx(th, "w-10")}>
+                <th className={cx(th, "w-11")}>
                   <input type="checkbox" aria-label="Selecionar todos desta página" className="size-4 align-middle"
                     disabled={!selectable.length} checked={allOn}
                     onChange={() => setSelected(allOn ? new Set() : new Set(selectable.map((t) => t.id)))} />
                 </th>
                 {grouped ? (
-                  <th className={cx(th, "w-0 p-0")}><span className="sr-only">Data (nos cabeçalhos de dia)</span></th>
+                  <th className={cx(th, "hidden w-0 p-0 sm:table-cell")}><span className="sr-only">Data (nos cabeçalhos de dia)</span></th>
                 ) : (
                   <th className={cx(th, "hidden w-28 sm:table-cell")} aria-sort={ariaSort("date")}>
                     <button type="button" className={cx("inline-flex items-center gap-1 rounded", focusRing)} onClick={() => sortBy("date")}>Data<SortIcon col="date" /></button></th>
@@ -225,10 +240,10 @@ export default function Transactions() {
                     por data<SortIcon col="date" /></button>}
                   {!grouped && <button type="button" className={cx("ml-3 rounded font-normal text-anil", focusRing)}
                     onClick={() => update({ sort: "date", order: "desc" })}>agrupar por dia</button>}</th>
-                <th className={cx(th, "hidden lg:table-cell")}>Situação</th>
-                <th className={cx(th, "text-right")} aria-sort={ariaSort("amount")}>
+                <th className={cx(th, "hidden w-32 lg:table-cell")}>Situação</th>
+                <th className={cx(th, "w-[7.25rem] text-right sm:w-36")} aria-sort={ariaSort("amount")}>
                   <button type="button" className={cx("inline-flex items-center gap-1 rounded", focusRing)} onClick={() => sortBy("amount")}>Valor<SortIcon col="amount" /></button></th>
-                <th className={cx(th, "w-[7.5rem]")}><span className="sr-only">Ações</span></th>
+                <th className={cx(th, "w-[6.25rem] xl:w-[9rem]")}><span className="sr-only">Ações</span></th>
               </tr>
             </thead>
             <tbody>
@@ -236,27 +251,36 @@ export default function Transactions() {
                 <Fragment key={g.day ?? gi}>
                   {g.day && (
                     <tr>
-                      <th colSpan={6} scope="colgroup" className="border-b border-rule bg-paper/60 px-4 py-1.5 text-left text-[13px] font-semibold sm:px-5">
-                        {capitalize(dayLabel(g.day))}
+                      <th colSpan={6} scope="colgroup" style={{ top: "var(--sticky-top, 0px)" }}
+                        className="sticky z-10 border-b border-rule bg-sunk/95 px-4 py-2 text-left backdrop-blur sm:px-5">
+                        <span className="flex items-baseline justify-between gap-3">
+                          <span className="display font-figure text-[13px] font-[640]">{capitalize(dayLabel(g.day))}</span>
+                          <Money value={dayNet(g.rows)} size="sm" tone="signed" className="opacity-80" />
+                        </span>
                       </th>
                     </tr>
                   )}
-                  {g.rows.map((t) => {
+                  <AnimatePresence initial={false}>
+                  {g.rows.map((t, ri) => {
                     const ed = editable(t);
                     const pending = ed && t.status !== "settled";
                     return (
-                      <tr key={t.id} className={cx("group", selected.has(t.id) ? "bg-anil-wash/60" : "hover:bg-ink/[0.025]")}>
+                      <motion.tr key={t.id} layout="position"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0, transition: { delay: Math.min((gi * 3 + ri) * 0.012, 0.25), duration: dur.base } }}
+                        exit={{ opacity: 0, x: 40, transition: { duration: dur.base, ease: ease.exit } }}
+                        className={cx("group transition-colors duration-200", selected.has(t.id) ? "bg-anil-wash/70" : "hover:bg-anil-wash/30")}>
                         <td className={td}>
                           {ed && <input type="checkbox" className="size-4 align-middle" aria-label={`Selecionar ${t.description}`}
                             checked={selected.has(t.id)} onChange={() => toggle(t.id)} />}
                         </td>
-                        {grouped ? <td className="w-0 border-b border-rule/70 p-0" /> : (
+                        {grouped ? <td className="hidden w-0 border-b border-rule/70 p-0 sm:table-cell" /> : (
                           <td className={cx(td, "num hidden whitespace-nowrap text-ink-soft sm:table-cell")}>{date(t.date)}</td>)}
                         <td className={cx(td, "max-w-0 w-full")}>
                           <button type="button" onClick={() => open(t)} disabled={!ed && !t.transfer_id}
                             className={cx("block w-full rounded text-left disabled:cursor-default", focusRing)}>
-                            <span className="flex items-center gap-2">
-                              <span className="truncate font-medium">{t.description}</span>
+                            <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                              <span className="min-w-0 max-w-full truncate font-medium">{t.description}</span>
                               {t.recurrence_id && <Tag>Recorrente</Tag>}
                               {t.investment_operation_id && <Tag>Investimento</Tag>}
                               {t.transfer_id && <Tag>Transferência</Tag>}
@@ -270,7 +294,7 @@ export default function Transactions() {
                         </td>
                         <td className={cx(td, "hidden whitespace-nowrap lg:table-cell")}><TxStatus t={t} /></td>
                         <td className={cx(td, "whitespace-nowrap text-right")}>
-                          <Money value={t.amount} flow={isInflow(t.kind) ? "in" : "out"} />
+                          <Money value={t.amount} size="sm" flow={isInflow(t.kind) ? "in" : "out"} className="sm:text-[15px]" />
                         </td>
                         <td className={cx(td, "whitespace-nowrap text-right")}>
                           <div className="flex items-center justify-end gap-1">
@@ -278,7 +302,7 @@ export default function Transactions() {
                               <Button size="sm" variant="secondary" icon={Check} disabled={settle.isPending}
                                 aria-label={`${t.kind === "income" ? "Receber" : "Pagar"} ${t.description}`}
                                 onClick={() => settle.mutate([t.id])}>
-                                <span className="hidden sm:inline">{t.kind === "income" ? "Receber" : "Pagar"}</span></Button>
+                                <span className="hidden xl:inline">{t.kind === "income" ? "Receber" : "Pagar"}</span></Button>
                             )}
                             <RowMenu label={`Ações de ${t.description}`} items={[
                               { label: "Editar", icon: Pencil, onSelect: () => open(t), hidden: !ed && !t.transfer_id },
@@ -288,13 +312,14 @@ export default function Transactions() {
                             ]} />
                           </div>
                         </td>
-                      </tr>
+                      </motion.tr>
                     );
                   })}
+                  </AnimatePresence>
                 </Fragment>
               ))}
             </tbody>
-          </Table>
+          </table>
         )}
         {p && pages > 1 && (
           <nav aria-label="Paginação" className="flex items-center justify-between gap-2 border-t border-rule px-4 py-2.5 text-sm sm:px-5">
@@ -309,10 +334,17 @@ export default function Transactions() {
       </div>
 
       {/* Ações em lote: aparece só com seleção, presa ao rodapé da tela */}
+      {createPortal(<AnimatePresence>
       {selected.size > 0 && (
-        <div role="region" aria-label="Ações para os selecionados"
-          className="fixed inset-x-3 bottom-20 z-30 mx-auto flex max-w-2xl flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-ink px-4 py-3 text-paper shadow-float motion-safe:animate-rise-in md:bottom-6">
-          <span className="text-sm font-medium">{selected.size} {selected.size === 1 ? "selecionado" : "selecionados"}</span>
+        <motion.div role="region" aria-label="Ações para os selecionados" key="bulk"
+          initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1, transition: spring.layer }}
+          exit={{ y: 80, opacity: 0, transition: { duration: dur.base } }}
+          className="fixed inset-x-3 bottom-20 z-30 mx-auto flex max-w-2xl flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-ink px-4 py-3 text-paper shadow-float md:bottom-6">
+          <span className="text-sm font-medium">
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span key={selected.size} className="inline-block" initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 10, opacity: 0 }} transition={{ duration: dur.fast }}>{selected.size}</motion.span>
+            </AnimatePresence>{" "}{selected.size === 1 ? "selecionado" : "selecionados"}</span>
           <span className="num font-figure text-sm opacity-80">saldo {selectedNet < 0 ? "−" : "+"} {Math.abs(selectedNet).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
           <div className="ml-auto flex gap-2">
             <Button size="sm" icon={Check} className="bg-sheet !text-ink hover:bg-paper"
@@ -323,8 +355,9 @@ export default function Transactions() {
             <button type="button" aria-label="Limpar seleção" onClick={clearSel}
               className={cx("grid size-8 place-items-center rounded opacity-80 hover:opacity-100", focusRing)}><X className="size-4" /></button>
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>, document.body)}
 
       <ConfirmDialog open={!!toDelete} title={toDelete && toDelete.length > 1 ? `Excluir ${toDelete.length} lançamentos` : "Excluir lançamento"}
         busy={del.isPending} onClose={() => setToDelete(null)} onConfirm={() => toDelete && del.mutate(toDelete)}
@@ -334,6 +367,23 @@ export default function Transactions() {
           : toDelete[0].transfer_id ? "Os dois lados desta transferência serão excluídos."
           : <>Excluir “{toDelete[0].description}” (<Money value={toDelete[0].amount} size="sm" />)? A exclusão fica registrada no histórico.</>} />
       <ImportSheet open={importing} onClose={() => setImporting(false)} />
+    </div>
+  );
+}
+
+const dayNet = (rows: Transaction[]) => rows.filter((t) => t.kind === "income" || t.kind === "expense")
+  .reduce((s, t) => s + (t.kind === "income" ? 1 : -1) * toNum(t.amount), 0);
+
+/** Proporção entre o que entrou e o que saiu no filtro atual. */
+function FlowBar({ sumIn, sumOut }: { sumIn: number; sumOut: number }) {
+  const total = sumIn + sumOut;
+  if (!total) return <div className="mt-4 h-px bg-rule" />;
+  return (
+    <div className="mt-4 flex h-2 gap-[3px]" role="img" aria-label={`Entradas: ${Math.round((sumIn / total) * 100)}% do movimento`}>
+      {([[sumIn, "bg-pos"], [sumOut, "bg-neg"]] as const).map(([v, c]) => (
+        <motion.div key={c} layout className={cx("h-full rounded-full", c)} style={{ flexGrow: v }}
+          transition={{ duration: dur.slow, ease: ease.out }} />
+      ))}
     </div>
   );
 }
@@ -390,7 +440,7 @@ function ImportSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
           Colunas: <code className="text-ink">data;descricao;valor;tipo;status;categoria;conta;observacoes</code>.
           Datas em dd/mm/aaaa, valores positivos (1.234,56) e tipo “receita” ou “despesa”.
         </p>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Arquivo CSV">
             <input type="file" accept=".csv,text/csv" className={cx(inputCls, "py-1.5 file:mr-3 file:rounded-sm file:border-0 file:bg-anil-wash file:px-2 file:py-1 file:text-anil")}
               onChange={(e) => { setFile(e.target.files?.[0] ?? null); setRows(null); }} />

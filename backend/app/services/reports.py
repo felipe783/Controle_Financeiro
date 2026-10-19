@@ -42,6 +42,23 @@ def monthly_series(db: Session, start: dt.date, end: dt.date) -> list[dict]:
     return out
 
 
+def daily_series(db: Session, start: dt.date, end: dt.date) -> list[dict]:
+    """Receitas e despesas efetivadas por dia, com os mesmos critérios de `monthly_series`. Dias sem movimento
+    entram zerados, para o painel desenhar o período inteiro."""
+    rows = db.execute(
+        select(Transaction.settle_date, Transaction.kind, func.sum(Transaction.amount))
+        .where(Transaction.status == "settled", Transaction.kind.in_(ledger.CASH_FLOW_KINDS),
+               Transaction.settle_date.between(start, end))
+        .group_by(Transaction.settle_date, Transaction.kind)).all()
+    data = {(d, k): Decimal(v) for d, k, v in rows}
+    out = []
+    for i in range((end - start).days + 1):
+        d = start + dt.timedelta(days=i)
+        inc, exp = data.get((d, "income"), ZERO), data.get((d, "expense"), ZERO)
+        out.append({"date": d, "income": inc, "expense": exp, "result": inc - exp})
+    return out
+
+
 def expenses_by_category(db: Session, start: dt.date, end: dt.date) -> list[dict]:
     parent = aliased(Category)
     name = func.coalesce(parent.name, Category.name, "Sem categoria")
@@ -118,6 +135,7 @@ def dashboard(db: Session, start: dt.date, end: dt.date, previous: tuple[dt.date
         },
         "warnings": nw["warnings"],
         "monthly": monthly_series(db, start.replace(day=1), end),
+        "daily": daily_series(db, start, end),
         "expenses_by_category": expenses_by_category(db, start, end),
         "allocation": [{"asset_class": k, "value": v} for k, v in sorted(pf["by_class"].items(),
                                                                           key=lambda kv: -kv[1])],

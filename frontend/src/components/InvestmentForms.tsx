@@ -25,7 +25,7 @@ export function AssetForm({ initial, onDone, formId = "asset-form" }: { initial:
       notes: n(f.notes), currency: f.currency.toUpperCase() });
   }
   return (
-    <form id={formId} onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+    <form id={formId} onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <Field label="Classe" className="sm:col-span-2">
         <select className={inputCls} value={f.asset_class} onChange={s("asset_class")}>
           {Object.entries(ASSET_CLASSES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -99,7 +99,7 @@ export function OperationForm({ asset, initial, onDone, formId = "op-form" }: {
   }
 
   return (
-    <form id={formId} onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+    <form id={formId} onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <Field label="Operação" className="sm:col-span-2">
         <select className={inputCls} value={k} onChange={s("kind")}>
           {OP_ORDER.map((v) => <option key={v} value={v}>{OP_KINDS[v]}</option>)}</select></Field>

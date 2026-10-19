@@ -14,13 +14,16 @@ export default {
         ink: { DEFAULT: v("ink"), soft: v("ink-soft"), faint: v("ink-faint") },
         rule: { DEFAULT: v("rule"), strong: v("rule-strong") },
         anil: { DEFAULT: v("anil"), strong: v("anil-strong"), wash: v("anil-wash"), ink: v("anil-ink") },
+        ocre: { DEFAULT: v("ocre"), ink: v("ocre-ink") },
+        rail: { DEFAULT: v("rail"), ink: v("rail-ink"), soft: v("rail-soft") },
         pos: { DEFAULT: v("pos"), wash: v("pos-wash") },
         neg: { DEFAULT: v("neg"), wash: v("neg-wash") },
         warn: { DEFAULT: v("warn"), wash: v("warn-wash") },
       },
       fontFamily: {
         sans: ['"IBM Plex Sans"', "system-ui", "sans-serif"],
-        figure: ['"IBM Plex Sans Condensed"', '"IBM Plex Sans"', "system-ui", "sans-serif"],
+        // Números e títulos: Archivo variável (eixos de peso e largura), com algarismos tabulares.
+        figure: ['"Archivo Variable"', '"IBM Plex Sans"', "system-ui", "sans-serif"],
       },
       fontSize: {
         // escala modular (≈1,2) para uma interface densa; 14 px é o corpo de trabalho
@@ -32,21 +35,13 @@ export default {
         "2xl": ["1.728rem", { lineHeight: "2.1rem" }],
         "3xl": ["2.488rem", { lineHeight: "2.6rem" }],
         "4xl": ["3.583rem", { lineHeight: "3.6rem" }],
+        "5xl": ["5.16rem", { lineHeight: "1" }],
       },
-      borderRadius: { sm: "3px", DEFAULT: "5px", md: "6px", lg: "10px" },
+      borderRadius: { sm: "3px", DEFAULT: "6px", md: "8px", lg: "12px", xl: "16px" },
       boxShadow: {
         sheet: "0 1px 0 rgb(var(--rule) / 1)",
-        float: "0 12px 32px -8px rgb(15 20 40 / 0.28), 0 2px 6px rgb(15 20 40 / 0.12)",
-      },
-      keyframes: {
-        "sheet-in": { from: { transform: "translateX(24px)", opacity: "0" }, to: { transform: "none", opacity: "1" } },
-        "rise-in": { from: { transform: "translateY(16px)", opacity: "0" }, to: { transform: "none", opacity: "1" } },
-        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
-      },
-      animation: {
-        "sheet-in": "sheet-in 200ms cubic-bezier(.2,.8,.2,1)",
-        "rise-in": "rise-in 200ms cubic-bezier(.2,.8,.2,1)",
-        "fade-in": "fade-in 150ms ease-out",
+        lift: "0 1px 2px rgb(14 22 50 / 0.06), 0 8px 24px -12px rgb(14 22 50 / 0.18)",
+        float: "0 18px 48px -12px rgb(8 14 40 / 0.38), 0 3px 10px rgb(8 14 40 / 0.14)",
       },
     },
   },

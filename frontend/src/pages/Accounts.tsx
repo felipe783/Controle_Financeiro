@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import {
   Button, Check, ConfirmDialog, cx, Empty, ErrorBox, Field, focusRing, inputCls, Loading, Money, MoneyInput,
-  PageHeader, RowMenu, Sheet, SheetActions,
+  Band, BandFigure, PageHeader, RowMenu, Sheet, SheetActions,
 } from "../components/ui";
 import { ACCOUNT_TYPES, date, decToInput, parseDecimal, todayISO, toNum } from "../format";
 import { useAccounts, useSave } from "../hooks";
@@ -32,23 +32,23 @@ export default function Accounts() {
   const pendingOut = open.reduce((s, a) => s + toNum(a.pending_out), 0);
 
   const row = (a: Account) => (
-    <li key={a.id} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_10rem_11rem_auto] sm:px-5">
+    <li key={a.id} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-4 py-3.5 lg:grid-cols-[minmax(0,1fr)_10rem_11rem_auto] sm:px-5">
       <div className="min-w-0">
         <Link to={`/lancamentos?account_id=${a.id}`} className={cx("rounded font-medium hover:text-anil hover:underline", focusRing)}>{a.name}</Link>
         <div className="truncate text-xs text-ink-soft">{[ACCOUNT_TYPES[a.type], a.institution].filter(Boolean).join(" · ")}</div>
       </div>
-      <div className="col-start-2 row-start-1 text-right sm:col-start-3">
+      <div className="col-start-2 row-start-1 text-right lg:col-start-3">
         <Money value={a.balance} size="md" className={toNum(a.balance) < 0 ? "text-neg" : ""} />
       </div>
-      <div className="col-span-2 text-xs text-ink-soft sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:text-right">
+      <div className="col-span-2 text-xs text-ink-soft lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:text-right">
         {toNum(a.pending_in) || toNum(a.pending_out) ? (
           <>
             {toNum(a.pending_in) > 0 && <div>a receber <Money value={a.pending_in} size="sm" tone="muted" /></div>}
             {toNum(a.pending_out) > 0 && <div>a pagar <Money value={a.pending_out} size="sm" tone="muted" /></div>}
           </>
-        ) : <span className="hidden sm:inline">Nada pendente</span>}
+        ) : <span className="hidden lg:inline">Nada pendente</span>}
       </div>
-      <div className="col-span-2 flex items-center justify-end gap-1 sm:col-span-1">
+      <div className="col-span-2 flex items-center justify-end gap-1 lg:col-span-1">
         {!a.archived && <Button size="sm" variant="ghost" icon={Scale} onClick={() => setReconcile(a)}>Conciliar</Button>}
         <RowMenu label={`Ações de ${a.name}`} items={[
           { label: "Editar", icon: Pencil, onSelect: () => setEdit(a) },
@@ -71,11 +71,11 @@ export default function Accounts() {
         </div>
       ) : (
         <>
-          <dl className="mb-6 flex flex-wrap items-end gap-x-10 gap-y-3">
-            <div><dt className="text-sm text-ink-soft">Total em contas</dt><dd className="mt-1"><Money value={total} size="xl" /></dd></div>
-            <div><dt className="text-[13px] text-ink-soft">A receber</dt><dd><Money value={pendingIn} size="md" flow="in" /></dd></div>
-            <div><dt className="text-[13px] text-ink-soft">A pagar</dt><dd><Money value={pendingOut} size="md" flow="out" /></dd></div>
-          </dl>
+          <Band label="Total em contas" value={total} className="mb-6"
+            note="Saldo inicial mais tudo que já foi efetivado, em cada conta.">
+            <BandFigure label="A receber"><Money value={pendingIn} size="lg" className="text-[rgb(140_235_185)]" /></BandFigure>
+            <BandFigure label="A pagar"><Money value={pendingOut} size="lg" className="text-[rgb(255_180_170)]" /></BandFigure>
+          </Band>
           <div className="space-y-5">
             {GROUPS.map(([label, types]) => {
               const items = open.filter((a) => types.includes(a.type));
@@ -136,7 +136,7 @@ function AccountForm({ initial, onDone }: { initial: Account | null; onDone: () 
     save.mutate({ ...f, initial_balance: bal, institution: f.institution || null, notes: f.notes || null });
   }
   return (
-    <form id="account-form" onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+    <form id="account-form" onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <Field label="Nome" className="sm:col-span-2"><input className={inputCls} value={f.name} required maxLength={100} autoFocus
         placeholder="Conta corrente, Nubank, Carteira…" onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
       <Field label="Tipo">

@@ -39,7 +39,7 @@ Router com `dependencies=[Depends(auth.require_admin)]`: usuário comum recebe *
 
 | Rotas | Função |
 |---|---|
-| `GET /dashboard?period=month\|3m\|6m\|year\|custom` | painel ([[Relatórios (Financeiro)|Relatórios]]) |
+| `GET /dashboard?period=month\|3m\|6m\|year\|custom` | painel ([[Relatórios (Financeiro)|Relatórios]]); inclui `daily` desde 2026-10-19 |
 | `GET /networth`, `GET /networth/history`, `POST /networth/snapshot` | [[Patrimônio (Financeiro)|Patrimônio]] |
 | `POST /liabilities`, `PUT/DELETE /liabilities/{id}`, `GET/POST /liabilities/{id}/balances` | dívidas e histórico de saldo |
 | `GET/PUT /budgets`, `POST /budgets/copy`, `DELETE /budgets/{id}` | orçamentos |

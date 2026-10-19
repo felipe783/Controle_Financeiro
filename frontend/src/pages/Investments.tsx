@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { AssetForm } from "../components/InvestmentForms";
 import {
-  Button, Check, cx, Empty, ErrorBox, Field, Figure, focusRing, inputCls, Loading, Money, MoneyInput, Notice, PageHeader,
+  Band, BandFigure, Button, Check, cx, Empty, railTone, ErrorBox, Field, focusRing, inputCls, Loading, Money, MoneyInput, Notice, PageHeader,
   Panel, Sheet, SheetActions, Status, Table, td, th,
 } from "../components/ui";
 import { ASSET_CLASSES, date, dateTime, money, num, parseDecimal, pct, todayISO, toNum } from "../format";
@@ -47,15 +47,15 @@ export default function Investments() {
 
       <ErrorBox error={pf.error} className="mb-4" />
       {t && (
-        <dl className="mb-6 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3 xl:grid-cols-5">
-          <Figure label="Valor de mercado" className="col-span-2 sm:col-span-1"><Money value={t.market_value_brl} size="xl" /></Figure>
-          <Figure label="Custo da posição" note={<>Aportado no total: <Money value={t.bought_brl} size="sm" tone="muted" /></>}>
-            <Money value={t.cost_brl} size="lg" tone="muted" /></Figure>
-          <Figure label="Não realizado"><Money value={t.unrealized_brl} size="lg" tone="signed" /></Figure>
-          <Figure label="Retorno total" note={<>Inclui realizado, proventos e taxas</>}><Money value={t.total_return_brl} size="lg" tone="signed" /></Figure>
-          <Figure label="TIR anual" note={pf.data?.xirr ? `Simples sobre aportes: ${pct(pf.data.simple_return)}` : "Aparece após 30 dias de histórico"}>
-            <span className="num font-figure text-2xl font-semibold leading-none">{pf.data?.xirr ? pct(pf.data.xirr) : "—"}</span></Figure>
-        </dl>
+        <Band label="Valor de mercado" value={t.market_value_brl} className="mb-6"
+          note={<>Aportado no total: <Money value={t.bought_brl} size="sm" className="text-rail-ink" /></>}>
+          <BandFigure label="Custo da posição"><Money value={t.cost_brl} size="lg" /></BandFigure>
+          <BandFigure label="Não realizado"><Money value={t.unrealized_brl} size="lg" className={railTone(t.unrealized_brl)} animate /></BandFigure>
+          <BandFigure label="Retorno total" note="Inclui realizado, proventos e taxas">
+            <Money value={t.total_return_brl} size="lg" className={railTone(t.total_return_brl)} animate /></BandFigure>
+          <BandFigure label="TIR anual" note={pf.data?.xirr ? `Simples sobre aportes: ${pct(pf.data.simple_return)}` : "Aparece após 30 dias de histórico"}>
+            <span className="num font-figure text-[1.75rem] font-semibold leading-none text-ocre">{pf.data?.xirr ? pct(pf.data.xirr) : "—"}</span></BandFigure>
+        </Band>
       )}
 
       <QuoteStatusLine status={status.data} />

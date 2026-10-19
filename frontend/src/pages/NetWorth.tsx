@@ -5,7 +5,7 @@ import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts"
 import { api } from "../api";
 import { brlShort, ChartBox, Legend, moneyFormatter, useChartTheme } from "../components/charts";
 import {
-  Button, ConfirmDialog, cx, Empty, ErrorBox, Field, inputCls, Loading, Money, MoneyInput, Notice, PageHeader, Panel,
+  Button, ConfirmDialog, cx, railTone, Empty, ErrorBox, Field, inputCls, Loading, Money, MoneyInput, Notice, PageHeader, Panel,
   RowMenu, Sheet, SheetActions, Table, Tag, td, th,
 } from "../components/ui";
 import { date, monthLabel, parseDecimal, todayISO, toNum } from "../format";
@@ -86,12 +86,12 @@ export default function NetWorth() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-rule bg-sunk px-5 py-4 sm:px-6">
+            <div className="flex flex-wrap items-end justify-between gap-4 bg-rail px-5 py-6 text-rail-ink sm:px-6">
               <div>
-                <div className="font-semibold">Patrimônio líquido</div>
-                <div className="text-xs text-ink-soft">Bens menos dívidas. Metas não entram: são destinos para dinheiro que já está nas contas.</div>
+                <div className="display font-figure text-lg font-[640]">Patrimônio líquido</div>
+                <div className="mt-1 max-w-md text-xs text-rail-soft">Bens menos dívidas. Metas não entram: são destinos para dinheiro que já está nas contas.</div>
               </div>
-              <Money value={d.net} size="xl" className={toNum(d.net) < 0 ? "text-neg" : ""} />
+              <Money value={d.net} size="hero" animate className={toNum(d.net) < 0 ? railTone(d.net) : ""} />
             </div>
           </section>
         </>

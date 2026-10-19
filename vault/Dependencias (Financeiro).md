@@ -51,7 +51,9 @@ pip install -r backend/requirements-dev.txt
 | [@radix-ui/react-dialog](https://www.radix-ui.com/) | 1.1.4 | folhas laterais e diálogos acessíveis (foco, Esc) |
 | [@radix-ui/react-dropdown-menu](https://www.radix-ui.com/) | 2.1.4 | menu "⋯" de ações por linha, navegável por teclado |
 | [lucide-react](https://lucide.dev/) | 0.460.0 | ícones SVG |
-| [@fontsource/ibm-plex-sans](https://fontsource.org/) e `ibm-plex-sans-condensed` | 5.1.0 | fontes empacotadas pelo Vite (a CSP do Nginx só aceita `font-src 'self'`) |
+| [@fontsource/ibm-plex-sans](https://fontsource.org/) | 5.1.0 | fonte do corpo, empacotada pelo Vite (a CSP do Nginx só aceita `font-src 'self'`) |
+| [@fontsource-variable/archivo](https://fontsource.org/fonts/archivo) | 5.3.0 | títulos e números (eixos de peso e largura); substituiu o IBM Plex Sans Condensed em 2026-10-19 |
+| [motion](https://motion.dev/) | 12.23.24 | sistema de movimento: folhas, menus, transição de página, contagem dos números, mural (2026-10-19; a 14.x tinha saído no mesmo dia) |
 | [Tailwind CSS](https://tailwindcss.com/) | 3.4.17 | estilos, tema escuro por classe |
 | [Vite](https://vite.dev/) | 6.0.7 | build e servidor de desenvolvimento |
 | [TypeScript](https://www.typescriptlang.org/) | 5.7.2 | tipagem (`strict`) |

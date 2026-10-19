@@ -45,9 +45,9 @@ Financeiro/
 	|  |--📁 public
 	|  |  |--theme.js            ← tema claro/escuro antes do React (compatível com a CSP)
 	|  |--📁 src
-	|  |  |--📁 components       ← ui.tsx (design system), charts.tsx, TransactionForms.tsx (lançamento rápido), InvestmentForms.tsx
+	|  |  |--📁 components       ← ui.tsx (design system), tiles.tsx (módulo de azulejo, marca e carregamento), charts.tsx, TransactionForms.tsx (lançamento rápido), InvestmentForms.tsx
 	|  |  |--📁 pages            ← Dashboard, Transactions, Accounts, Investments, AssetPage, NetWorth, Planning, Categories, Audit, Users
-	|  |  |--App.tsx / main.tsx / api.ts / hooks.ts / format.ts / types.ts
+	|  |  |--App.tsx / main.tsx / motion.ts (tempos, curvas e molas) / api.ts / hooks.ts / format.ts / types.ts
 	|  |  |--format.test.ts      ← vitest
 	|  |--package.json / package-lock.json / vite.config.ts / tailwind.config.js
 	📁 infra
@@ -64,6 +64,7 @@ Financeiro/
 	|--docker-compose.yml
 	|--.env.example / .dockerignore / .gitignore / .gitattributes
 	|--README.md
+	|--PRODUCT.md           ← contexto de produto para a skill Impeccable (usuários, prioridades do dono)
 	|--CLAUDE.md             ← instruções do Claude Code; importa vault/_Financeiro.md
 ```
 

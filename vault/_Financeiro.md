@@ -38,7 +38,8 @@ Sistema de **gestão financeira pessoal**: contas, receitas e despesas, transfer
 | Gestão de usuários com papéis administrador/usuário | Implementado em 2026-10-18 (`/api/users`, tela Usuários) |
 | Dados financeiros isolados por usuário (Row-Level Security) | Implementado em 2026-10-18 (migração `0003`); verificado em testes e no navegador |
 | Interface reconstruída (identidade "caderneta", lançamento rápido, extrato por dia, ações em lote, página do ativo) | Implementado em 2026-10-19; ver [[!Modulo Frontend (Financeiro)|!Modulo Frontend]] |
-| Testes automatizados | 96 testes `pytest` (como papel sem superusuário) e 5 `vitest` passando em 2026-10-19 |
+| Redesign "Painel de azulejos": trilho cobalto, mural de azulejos no painel, sistema de movimento (Motion), paleta de comandos (Ctrl K) | Implementado em 2026-10-19 (noite); `/dashboard` ganhou `daily` |
+| Testes automatizados | 97 testes `pytest` (como papel sem superusuário) e 5 `vitest` passando em 2026-10-19 |
 | Docker Compose, Nginx e scripts ([[FN-RF 08|RF 08]]) | Implementado; imagens **nunca construídas** (sem daemon Docker na máquina de desenvolvimento) |
 | Repositório remoto no GitHub (privado) | Pendente: `gh` não autenticado |
 
@@ -106,6 +107,7 @@ Revisados em 2026-10-18.
 
 ## Decisões
 
+- **Identidade "Painel de azulejos" e sistema de movimento (2026-10-19, noite):** o dono pediu um redesenho ambicioso, com prioridade para impacto visual e motion. Mundo visual dos azulejos de Athos Bulcão (cobalto, ocre, Archivo); `motion` 12.23.24 como única biblioteca de animação, com `reducedMotion="user"`. O mural do painel é desenhado a partir de `daily` (série diária, mesmos critérios das mensais). Custo aceito: *bundle* inicial de ≈ 109 para ≈ 160 kB gzip. Detalhes em [[!Modulo Frontend (Financeiro)|!Modulo Frontend]].
 - **Interface "caderneta" (2026-10-19):** tokens de cor em variáveis CSS, com anil como marca e verde/vermelho reservados ao sentido do dinheiro. Valores em IBM Plex Sans Condensed com algarismos tabulares, fontes empacotadas por causa da CSP. Formulários em folhas laterais e lançamento rápido global (tecla N). Filtros do extrato na URL. Detalhes em [[!Modulo Frontend (Financeiro)|!Modulo Frontend]].
 - **Ações em lote são tudo ou nada** (`/transactions/bulk/settle` e `/bulk/delete`, 2026-10-19): cada id passa por `get_or_404` e só receitas/despesas comuns entram; um item inválido recusa o lote inteiro (409), sem efetivação parcial.
 - **Saldo nunca é armazenado:** é recalculado (saldo inicial + lançamentos efetivados até hoje). Não existe saldo desatualizado nem corrida entre operações simultâneas.

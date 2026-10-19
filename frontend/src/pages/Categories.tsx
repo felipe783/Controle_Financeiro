@@ -60,7 +60,7 @@ export default function Categories() {
       <PageHeader title="Categorias" context="Organizam receitas e despesas nos relatórios e nos orçamentos. Subcategorias somam na principal." />
       <ErrorBox error={cats.error} className="mb-4" />
       {cats.isLoading ? <Loading rows={8} /> : (
-        <div className="grid items-start gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
           {column("expense", "Despesas")}
           {column("income", "Receitas")}
         </div>

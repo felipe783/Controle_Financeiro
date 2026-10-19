@@ -26,30 +26,35 @@ export function EntryProvider({ children }: { children: ReactNode }) {
     setReq({ kind: r?.kind ?? (r?.transferId ? "transfer" : "expense"), tx: r?.tx ?? null, transferId: r?.transferId ?? null });
   }, []);
   const close = () => setReq(null);
-  const editing = !!(req?.tx || req?.transferId);
-  const title = !req ? "" : editing
-    ? { expense: "Editar despesa", income: "Editar receita", transfer: "Editar transferência" }[req.kind]
+  // A folha anima a saída: mostra o último pedido enquanto desliza para fora, em vez de sair vazia.
+  const last = useRef<EntryRequest | null>(null);
+  if (req) last.current = req;
+  const shown = req ?? last.current;
+  const editing = !!(shown?.tx || shown?.transferId);
+  const title = !shown ? "" : editing
+    ? { expense: "Editar despesa", income: "Editar receita", transfer: "Editar transferência" }[shown.kind]
     : "Novo lançamento";
+  const setKind = (k: EntryKind) => req && setReq({ ...req, kind: k });
 
   return (
     <EntryCtx.Provider value={open}>
       {children}
       <Sheet open={!!req} onClose={close} title={title}
-        footer={req && <>
+        footer={shown && <>
           <Button variant="ghost" onClick={close}>Cancelar</Button>
           {!editing && <Button variant="secondary" type="submit" form="entry-form" name="again" value="1">Salvar e lançar outro</Button>}
           <Button type="submit" form="entry-form">Salvar</Button>
         </>}>
-        {req && (
+        {shown && (
           <div key={seq} className="space-y-5">
             {!editing && (
-              <Segmented label="Tipo de lançamento" value={req.kind} onChange={(k) => setReq({ ...req, kind: k })}
+              <Segmented label="Tipo de lançamento" value={shown.kind} onChange={setKind}
                 options={[["expense", "Despesa"], ["income", "Receita"], ["transfer", "Transferência"]]} />
             )}
-            {req.kind === "transfer"
-              ? <TransferForm key="t" transferId={req.transferId} onDone={close} onAgain={() => open({ kind: "transfer" })} />
-              : <TransactionForm key={req.kind} kind={req.kind} initial={req.tx} onDone={close}
-                  onAgain={() => open({ kind: req.kind })} />}
+            {shown.kind === "transfer"
+              ? <TransferForm key="t" transferId={shown.transferId} onDone={close} onAgain={() => open({ kind: "transfer" })} />
+              : <TransactionForm key={shown.kind} kind={shown.kind} initial={shown.tx} onDone={close}
+                  onAgain={() => open({ kind: shown.kind })} />}
           </div>
         )}
       </Sheet>
@@ -117,7 +122,7 @@ function TransactionForm({ kind, initial, onDone, onAgain }: {
 
   const settledLabel = kind === "income" ? "Recebida" : "Paga";
   return (
-    <form id="entry-form" onSubmit={submit} className="grid gap-4 sm:grid-cols-2" aria-busy={save.isPending}>
+    <form id="entry-form" onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2" aria-busy={save.isPending}>
       <Field label="Valor" className="sm:col-span-2">
         <MoneyInput value={f.amount} onChange={(v) => setF({ ...f, amount: v })} required autoFocus={!initial} />
       </Field>

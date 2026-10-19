@@ -72,7 +72,7 @@ function Forecast() {
       {d && (
         <>
           {/* A conta do caixa escrita como uma soma: hoje + entra − sai = fica */}
-          <div className="grid grid-cols-2 gap-y-4 rounded-md border border-rule bg-sheet p-5 sm:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] sm:items-end sm:gap-x-4">
+          <div className="grid grid-cols-2 gap-y-4 rounded-md border border-rule bg-sheet p-5 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] lg:items-end lg:gap-x-4">
             <Eq label="Saldo hoje"><Money value={d.current_cash} size="lg" /></Eq>
             <Op>+</Op>
             <Eq label="Vai entrar"><Money value={d.expected_in} size="lg" className="text-pos" /></Eq>
@@ -128,7 +128,7 @@ function Eq({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="min-w-0"><div className="mb-1 text-[13px] text-ink-soft">{label}</div>{children}</div>;
 }
 function Op({ children }: { children: string }) {
-  return <div aria-hidden="true" className="hidden pb-0.5 font-figure text-2xl text-ink-faint sm:block">{children}</div>;
+  return <div aria-hidden="true" className="hidden pb-0.5 font-figure text-2xl text-ink-faint lg:block">{children}</div>;
 }
 
 // ---------- Orçamentos ----------
@@ -449,7 +449,7 @@ function RuleForm({ initial, onDone }: { initial: Rule | null; onDone: () => voi
       end_date: f.end_date || null, interval_count: Number(f.interval_count), due_day_offset: Number(f.due_day_offset) });
   }
   return (
-    <form id="rule-form" onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+    <form id="rule-form" onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {!initial && (
         <div className="sm:col-span-2">
           <Segmented label="Tipo" value={f.kind as "expense" | "income"} onChange={(v) => setF({ ...f, kind: v, category_id: "" })}

@@ -87,3 +87,20 @@ def test_dashboard_compares_with_previous_period_and_links_categories(client, db
     assert d["previous"]["start"] == "2026-01-04" and d["previous"]["end"] == "2026-01-31"
     assert Decimal(d["previous"]["expense"]) == 80 and Decimal(d["previous"]["income"]) == 500
     assert d["expenses_by_category"] == [{"category_id": food, "category": "Alimentação", "amount": "30.00"}]
+
+
+def test_dashboard_daily_series_covers_every_day_with_cash_flow_only(client):
+    acc, other = account(client), account(client, name="Reserva")
+    tx(client, acc, "expense", "40.00", date="2026-02-03")
+    tx(client, acc, "expense", "10.00", date="2026-02-03")
+    tx(client, acc, "income", "300.00", date="2026-02-05")
+    tx(client, acc, "expense", "99.00", status="pending", date="2026-02-04")  # não efetivado: fora
+    client.post("/api/transfers", json={"from_account_id": acc, "to_account_id": other, "amount": "70.00",
+                                        "date": "2026-02-04"})  # transferência não é receita nem despesa
+    d = client.get("/api/dashboard", params={"period": "custom", "start": "2026-02-01",
+                                             "end": "2026-02-07"}).json()
+    days = {x["date"]: x for x in d["daily"]}
+    assert len(d["daily"]) == 7 and d["daily"][0]["date"] == "2026-02-01"
+    assert Decimal(days["2026-02-03"]["expense"]) == 50 and Decimal(days["2026-02-03"]["income"]) == 0
+    assert Decimal(days["2026-02-04"]["expense"]) == 0 and Decimal(days["2026-02-04"]["income"]) == 0
+    assert Decimal(days["2026-02-05"]["result"]) == 300

@@ -3,7 +3,7 @@
 `backend/app/services/reports.py` é **somente leitura**: monta o painel, os orçamentos, as metas e a previsão a partir dos dados persistidos. Não faz chamadas externas.
 
 Responsabilidades:
-- **painel** (`dashboard`): indicadores do período, `previous` (receitas, despesas e resultado do período anterior, para a comparação na Visão geral), séries mensais, despesas por categoria (agrupando pela categoria-pai, com `category_id` da categoria-pai para o link aos lançamentos filtrados; `null` em "Sem categoria"), alocação por classe, histórico patrimonial, fluxos de investimento, contas a vencer em 7 dias e últimas movimentações;
+- **painel** (`dashboard`): indicadores do período, `previous` (receitas, despesas e resultado do período anterior, para a comparação na Visão geral), séries mensais, série diária (`daily`: uma linha por dia do período, inclusive os zerados, com os mesmos critérios das mensais; alimenta o mural do painel, adicionada em 2026-10-19), despesas por categoria (agrupando pela categoria-pai, com `category_id` da categoria-pai para o link aos lançamentos filtrados; `null` em "Sem categoria"), alocação por classe, histórico patrimonial, fluxos de investimento, contas a vencer em 7 dias e últimas movimentações;
 - **orçamentos** (`budget_report`): gasto efetivado, comprometido, percentual e status `ok`, `warning` ou `exceeded`;
 - **metas** (`goals_report`): aportes, progresso e valor mensal necessário até o prazo;
 - **previsão** (`forecast`): saldo atual ± lançamentos não efetivados no horizonte.
